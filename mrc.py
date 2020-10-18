@@ -1,3 +1,5 @@
+# Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
+
 from os import close, remove
 
 from glob import glob
@@ -183,13 +185,11 @@ if __name__ == '__main__':
     tesspath = args.tesseract_text_only_pdf
     outpath = args.out_pdf
 
-    #inpath = '/home/merlijn/archive/tesseract-evaluation/tmp/sim_english-illustrated-magazine_1884-12_2_15_jp2/'
-
     pdf = fitz.open(tesspath)
 
     i = 0
     for f in sorted(glob(inpath + '*.jp2')):
-        # XXX: in.tiff
+        # XXX: Make this /tmp/in.tiff) a tempfile
         subprocess.check_call([KDU_EXPAND, '-i', f, '-o', '/tmp/in.tiff'])
         mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg)
@@ -213,7 +213,6 @@ if __name__ == '__main__':
         if i % 10 == 0:
             print('Saving')
             pdf.save(outpath)
-            #break
 
     print(fitz.TOOLS.mupdf_warnings())
     pdf.save(outpath, deflate=True)
