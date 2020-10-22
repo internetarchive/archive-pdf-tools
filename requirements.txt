@@ -1,1 +1,5 @@
 PyMuPDF==1.18.1
+numpy
+lxml
+scikit-image
+Pillow
