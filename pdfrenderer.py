@@ -21,7 +21,7 @@
 # suppose it uses that in batch processing mode
 # - Get DPI/PPI from somewhere
 
-from math import atan2, cos, sin
+from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
 
@@ -31,6 +31,19 @@ WRITING_DIRECTION_TOP_TO_BOTTOM = 43
 WRITING_DIRECTION_LEFT_TO_RIGHT = 0
 ## END EXTRA DEFS
 
+# TODO: Per hOCR page, extract all info we need:
+# - carea
+#   -> lines
+#      * baseline
+#      * bbox(?)
+#      -> words
+#      * bbox
+#      * writing direction
+#      * (fake) baseline
+#      * x_fsize (fontsize)
+#
+# From scandata:
+# - PPI
 
 K_CHAR_WIDTH = 2
 K_MAX_BYTES_PER_CODEPOINTS = 20
@@ -61,9 +74,7 @@ class TessPDFRenderer(object):
     def AppendData(self, s):
         self._data += s
 
-    def GetPDFTextObjects(self, word_data, width, height):
-        ppi = 400. # TODO: Get DPI from hOCR or from scandata, etc?
-
+    def GetPDFTextObjects(self, word_data, width, height, ppi):
         # Stub values
         old_x = 0.0
         old_y = 0.0
@@ -77,12 +88,6 @@ class TessPDFRenderer(object):
         d = 1.
 
         pdf_str = bytes()
-        #std::stringstream pdf_str;
-        #// Use "C" locale (needed for double values prec()).
-        #pdf_str.imbue(std::locale::classic());
-        #// Use 8 digits for double values.
-        #pdf_str.precision(8);
-
         pdf_str += b'q ' + floatbytes(prec(width), prec=3) + b' 0 0 ' + floatbytes(prec(height), prec=3) + b' 0 0 cm'
 
         if not self.textonly:
@@ -95,163 +100,103 @@ class TessPDFRenderer(object):
         line_x2 = 0
         line_y2 = 0
 
-        # ocr_carea == RIL_BLOCK I think
+        for paragraph in word_data:
+            # TODO: change this to 3 to make text invisible again
+            pdf_str += b'BT\n0 Tr'
+            #pdf_str += b'BT\n3 Tr'
+            old_fontsize = 0
+            new_block = True
 
-        # TESTING
-        fontsize = 20
-        pdf_str += b'BT\n0 Tr'
-        #pdf_str += b'BT\n3 Tr'
+            for line in paragraph['lines']:
+                first_word_of_line = True
+                for word in line['words']:
+                    if first_word_of_line:
+                        x1, y1, x2, y2 = line['bbox']
 
-        x = 100
-        y = 100
-        a, b, c, d = AffineMatrix(-9001, 100, 100, 100, 100)
-        print(a,b,c,d)
-        a,b,c,d =1,0,0,1
-        pdf_str += b' ' + floatbytes(prec(a), prec=3)
-        pdf_str += b' ' + floatbytes(prec(b), prec=3)
-        pdf_str += b' ' + floatbytes(prec(c), prec=3)
-        pdf_str += b' ' + floatbytes(prec(d), prec=3)
-        pdf_str += b' ' + floatbytes(prec(x), prec=3)
-        pdf_str += b' ' + floatbytes(prec(y), prec=3)
-        pdf_str += b' Tm '
-        pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
+                        # TODO: I am not sure if this baseline code makes sense yet
+                        slope, constant = line['baseline']
+                        angle = atan(slope)
+                        diff = cos(angle) * constant
+                        diff = diff * 72 / ppi
+                        diff = (y2-y1) - diff
 
-        word = 'HELLO'
-        word_length = len(word)
+                        #print('slope:', slope, 'constant:', constant)
+                        #print('pts:', x1, y1, x2, y2)
+                        #print('diff:', diff, 'normdiff:', y2-y1)
 
-        pdf_word = b''
-        pdf_word_len = 0
-        for char in word:
-            codepoint = ord(char)
-            ok, utf16 = CodepointToUtf16be(codepoint)
-            if ok:
-                pdf_word += utf16
-                pdf_word_len += 1
+                        line_x1, line_y1, line_x2, line_y2 = \
+                                ClipBaseline(ppi, x1, y1, x2, y2 - diff)
+                                #ClipBaseline(ppi, x1, y1, x2, y2)
 
-        pdf_word += b'0020'
-        pdf_word_len += 1
+                        # TODO: Get writing direction from hOCR files (see hocrrenderer.cpp)
+                        writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
 
-        h_stretch = K_CHAR_WIDTH * prec(100.0 * word_length / (fontsize * pdf_word_len))
-        pdf_str += floatbytes(h_stretch) + b' Tz'
-        pdf_str += b' [ <' + pdf_word
-        pdf_str += b'> ] TJ'
+                    word_x1, word_y1, word_x2, word_y2 = word['bbox']
+                    x, y, word_length = GetWordBaseline(writing_direction, ppi, height,
+                            word_x1, word_y1, word_x2, word_y2, line_x1, line_y1,
+                            line_x2, line_y2)
 
-        pdf_str += b' \n';
-        pdf_str += b'ET\n'
-        # END TESTING
+                    if (writing_direction != old_writing_direction) or new_block:
+                        a, b, c, d = \
+                                AffineMatrix(writing_direction, line_x1, line_y1, line_x2, line_y2)
+                        pdf_str += (b' ' + floatbytes(prec(a)) +
+                                    b' ' + floatbytes(prec(b)) +
+                                    b' ' + floatbytes(prec(c)) +
+                                    b' ' + floatbytes(prec(d)) +
+                                    b' ' + floatbytes(prec(x)) +
+                                    b' ' + floatbytes(prec(y)) +
+                                    b' Tm ')
 
-        return pdf_str # XXX
+                        new_block = False
+                    else:
+                        dx = x - old_x
+                        dy = y - old_y
+                        pdf_str += b' ' + floatbytes(prec(dx * a + dy * b))
+                        pdf_str += b' ' + floatbytes(prec(dx * c + dy * d))
+                        pdf_str += b' Td '
 
+                        first_word_of_line = False
 
-        for word in ocr_careas:
-            # I think this loop run on every word
+                    old_x = x;
+                    old_y = y;
+                    old_writing_direction = writing_direction
 
-            if word_is_at_beginning_of_carea:
-                pdf_str += b'BT\n3 Tr'
-                old_fontsize = 0
-                new_block = True
+                    fontsize = word['fontsize']
+                    kDefaultFontsize = 8;
+                    if fontsize <= 0:
+                        fontsize = kDefaultFontsize
 
-            word_is_at_beginning_of_ril_textline = False # TODO: implement
-            # baseline parsing
-            if word_is_at_beginning_of_ril_textline:
-                x1, y1, x2, y2 = GET_LINE_BASELINE
-                line_x1, line_y1, line_x2, line_y2 = ClipBaseline(ppi, x1, y1,
-                        x2, y2)
+                    if fontsize != old_fontsize:
+                        pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
+                        old_fontsize = fontsize;
 
-            # TODO: Get writing direction from hOCR files (see hocrrenderer.cpp)
-            writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
+                    pdf_word = b''
+                    pdf_word_len = 0
 
-            if writing_direction != WRITING_DIRECTION_TOP_TO_BOTTOM:
-                # TODO: get word writing direction (parse "dir-'ltr'" etc)
-                # word_dir = get_our_word_direction()
-                word_dir = DIR_LEFT_TO_RIGHT
+                    for char in word['text']:
+                        codepoint = ord(char)
+                        ok, utf16 = CodepointToUtf16be(codepoint)
+                        if ok:
+                            pdf_word += utf16
+                            pdf_word_len += 1
 
-                if word_dir == DIR_LEFT_TO_RIGHT:
-                    writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
-                elif word_dir == DIR_RIGHT_TO_LEFT:
-                    writing_direction = WRITING_DIRECTION_RIGHT_TO_LEFT
-                else:
-                    writing_direction = old_writing_direction
+                    if True: # res_is->IsAtBeginningOf(RIL_WORD)
+                        pdf_word += b'0020'
+                        pdf_word_len += 1
 
-            x = 0.
-            y = 0.
-            word_length = 0.
+                    if word_length > 0 and pdf_word_len > 0:
+                        h_stretch = K_CHAR_WIDTH * prec(100.0 * word_length / (fontsize * pdf_word_len))
+                        pdf_str += floatbytes(h_stretch) + b' Tz'
+                        pdf_str += b' [ <' + pdf_word
+                        pdf_str += b'> ] TJ'
 
-            # XXX: MERLIJN: I think we can get away with getting the 
-            # bottom of the word bounding box here instead, since the  function
-            # GetWordBaseline projects all words onto the line baseline
-            word_x1, word_y1, word_x2, word_y2 = get_baseline_for_word()
-            x, y, word_length = GetWordBaseline(writing_direction, ppi, height,
-                    word_x1, word_y1, word_x2, word_y2, line_x1, line_y1,
-                    line_x2, line_y2)
-
-            if (writing_direction != old_writing_direction) or new_block:
-                a, b, c, d = AffineMatrix(writing_direction, line_x1, line_y1,
-                        line_x2, line_y2)
-                pdf_str += b' ' + floatbytes(prec(a))
-                pdf_str += b' ' + floatbytes(prec(b))
-                pdf_str += b' ' + floatbytes(prec(c))
-                pdf_str += b' ' + floatbytes(prec(d))
-                pdf_str += b' ' + floatbytes(prec(x))
-                pdf_str += b' ' + floatbytes(prec(y))
-                pdf_str += b' Tm '
-
-                new_block = False
-            else:
-                dx = x - old_x
-                dy = y - old_y
-                pdf_str += b' ' + floatbytes(prec(dx * a + dy * b))
-                pdf_str += b' ' + floatbytes(prec(dx * c + dy * d))
-                pdf_str += b' Td '
-
-            old_x = x;
-            old_y = y;
-            old_writing_direction = writing_direction;
-
-            # // Adjust font size on a per word granularity. Pay attention to
-            # // fontsize, old_fontsize, and pdf_str. We've found that for
-            # // in Arabic, Tesseract will happily return a fontsize of zero,
-            # // so we make up a default number to protect ourselves.
-            fontsize = TODO_GET_FONTSIZE # = x_fsize on word
-            kDefaultFontsize = 8;
-            if fontsize <= 0:
-                fontsize = kDefaultFontsize
-
-            if fontsize != old_fontsize:
-                pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
-                old_fontsize = fontsize;
-
-            last_word_in_line = False
-            last_word_in_block = Fales
-            #bool last_word_in_line = res_it->IsAtFinalElement(RIL_TEXTLINE, RIL_WORD);
-            #bool last_word_in_block = res_it->IsAtFinalElement(RIL_BLOCK, RIL_WORD);
-
-            pdf_word = b''
-            pdf_word_len = 0
-
-            for char in word:
-                codepoint = ord(char)
-                ok, utf16 = CodepointToUtf16be(codepoint)
-                if ok:
-                    pdf_word += utf16
-                    pdf_word_len += 1
-
-            if is_at_beginning_of_word:
-                pdf_word += b'0020'
-                pdf_word_len += 1
-
-            if word_length > 0 and pdf_word_len > 0:
-                h_stretch = kCharWidth * prec(100.0 * word_length / (fontsize * pdf_word_len))
-                pdf_str += floatbytes(h_stretch) + b' Tz'
-                pdf_str += b' [ <' + pdf_word
-                pdf_str += b'> ] TJ'
-
-            if last_word_in_line:
+                # Last word in the line
                 pdf_str += b' \n';
-            if last_word_in_block:
-                pdf_str += 'ET\n'
 
-        # XXX: done looping
+            # Last line the block
+            pdf_str += b'ET\n'
+
+
         return pdf_str
 
     def BeginDocumentHandler(self):
@@ -434,17 +379,7 @@ class TessPDFRenderer(object):
                    b'\n%%EOF\n')
         self.AppendString(stream)
 
-    def AddImageHandler(self, word_data, image):
-        # TODO: Let's just add a single page without image and without text, and
-        # see if that can work with our document end handler as well.
-        # Then look at hocr parsing and text placement next.
-        ppi = 400. # TODO
-        # TODO: get width/height from hOCR
-        #width = image.size[0]
-        #height = image.size[1]
-        width = 500
-        height = 500
-
+    def AddImageHandler(self, word_data, width, height, ppi):
         xobject = bytes()
         stream = bytes()
 
@@ -469,7 +404,7 @@ class TessPDFRenderer(object):
         self._pages.append(self._obj)
         self.AppendPDFObject(stream)
 
-        pdftext = self.GetPDFTextObjects(word_data, width, height)
+        pdftext = self.GetPDFTextObjects(word_data, width, height, ppi)
         comp_pdftext = zlib.compress(pdftext)
         stream = bytes()
 
@@ -602,6 +537,9 @@ def floatbytes(v, prec=8):
     return fmt_str.format(v).encode('ascii')
 
 
+def polyval(poly, x):
+    return x * poly[0] + poly[1]
+
 
 # TODO: Reverse this transformation
 """
@@ -642,10 +580,148 @@ static void AddBaselineCoordsTohOCR(const PageIterator* it,
 }
 """
 
+
+# XXX: Perhaps move this parsing elsewhere
+from lxml import etree, html
+import re
+
+BBOX_REGEX = re.compile(r'bbox((\s+\d+){4})')
+BASELINE_REGEX = re.compile(r'baseline((\s+[\d\.\-]+){2})')
+X_SIZE_REGEX = re.compile(r'x_size((\s+[\d\.\-]+){1})')
+X_FSIZE_REGEX = re.compile(r'x_fsize((\s+[\d\.\-]+){1})')
+
+def hocr_page_iterator(hocrfile):
+    hocr = etree.parse(hocrfile, html.XHTMLParser())
+    hocr_pages = hocr.xpath("//*[@class='ocr_page']")
+    for hocr_page in hocr_pages:
+        pagebox = BBOX_REGEX.search(hocr_page.attrib['title']).group(1).split()
+        w, h = int(pagebox[2]), int(pagebox[3])
+
+        yield hocr_page, (w,h )
+
+def hocr_to_word_data(hocr_page):
+    paragraphs = []
+
+    for par in hocr_page.xpath('.//*[@class="ocr_par"]'):
+        paragraph_data = {'lines': []}
+
+        for line in par.getchildren():
+            line_data = {}
+
+            linebox = BBOX_REGEX.search(line.attrib['title']).group(1).split()
+            baseline = BASELINE_REGEX.search(line.attrib['title'])
+            if baseline is not None:
+                baseline = baseline.group(1).split()
+            else:
+                baseline = [0, 0]
+
+            linebox = [float(i) for i in linebox]
+            baseline = [float(i) for i in baseline]
+
+            line_data['bbox'] = linebox
+            line_data['baseline'] = baseline
+
+            word_data = []
+            for word in line.xpath('.//*[@class="ocrx_word"]'):
+                # XXX: if no ocrx_cinfo, then just read word.text
+                rawtext = ''
+                for char in word.xpath('.//*[@class="ocrx_cinfo"]'):
+                    rawtext += char.text
+
+                box = BBOX_REGEX.search(word.attrib['title']).group(1).split()
+                box = [float(i) for i in box]
+
+                f_sizeraw = X_FSIZE_REGEX.search(word.attrib['title'])
+                if f_sizeraw:
+                    x_fsize = float(f_sizeraw.group(1))
+                else:
+                    x_fsize = 0. # Will get fixed later on
+
+                # TODO: writing direction
+                word_data.append({'bbox': box, 'text': rawtext, 'fontsize': x_fsize})
+
+
+            line_data['words'] = word_data
+            #print('Line words:', word_data)
+            paragraph_data['lines'].append(line_data)
+
+        paragraphs.append(paragraph_data)
+
+    return paragraphs
+
+
+"""
+        # TESTING
+        fontsize = 20
+        pdf_str += b'BT\n0 Tr'
+        #pdf_str += b'BT\n3 Tr'
+
+        x = 100
+        y = 100
+        a, b, c, d = AffineMatrix(-9001, 100, 100, 100, 100)
+        print(a,b,c,d)
+        a,b,c,d =1,0,0,1
+        pdf_str += b' ' + floatbytes(prec(a), prec=3)
+        pdf_str += b' ' + floatbytes(prec(b), prec=3)
+        pdf_str += b' ' + floatbytes(prec(c), prec=3)
+        pdf_str += b' ' + floatbytes(prec(d), prec=3)
+        pdf_str += b' ' + floatbytes(prec(x), prec=3)
+        pdf_str += b' ' + floatbytes(prec(y), prec=3)
+        pdf_str += b' Tm '
+        pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
+
+        word = 'HELLO'
+        word_length = len(word)
+
+        pdf_word = b''
+        pdf_word_len = 0
+        for char in word:
+            codepoint = ord(char)
+            ok, utf16 = CodepointToUtf16be(codepoint)
+            if ok:
+                pdf_word += utf16
+                pdf_word_len += 1
+
+        pdf_word += b'0020'
+        pdf_word_len += 1
+
+        h_stretch = K_CHAR_WIDTH * prec(100.0 * word_length / (fontsize * pdf_word_len))
+        pdf_str += floatbytes(h_stretch) + b' Tz'
+        pdf_str += b' [ <' + pdf_word
+        pdf_str += b'> ] TJ'
+
+        pdf_str += b' \n';
+        pdf_str += b'ET\n'
+        # END TESTING
+
+        return pdf_str # XXX
+
+"""
+
 if __name__ == '__main__':
+    # TODO improve
+    import sys
+    hocrfile = sys.argv[1]
+
     render = TessPDFRenderer()
+
     render.BeginDocumentHandler()
-    render.AddImageHandler(None, None)
+
+    scaler = 1
+
+    PPI = 72
+
+    #idx = 0
+    for page, (width, height) in hocr_page_iterator(hocrfile):
+        width /= scaler
+        height /= scaler
+        ppi = PPI * scaler
+        word_data = hocr_to_word_data(page)
+        render.AddImageHandler(word_data, width, height, ppi=ppi)
+        #idx += 1
+        #if idx > 2:
+        #    break
+
     render.EndDocumentHandler()
 
     fp = open('tessout.pdf', 'wb+')
