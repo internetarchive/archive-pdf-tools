@@ -71,9 +71,9 @@ class TessPDFRenderer(object):
         line_y2 = 0
 
         for paragraph in word_data:
-            # TODO: change this to 3 to make text invisible again
-            pdf_str += b'BT\n0 Tr'
-            #pdf_str += b'BT\n3 Tr'
+            # Use this instead of b'BT\n3 Tr' if you want to see the text
+            #pdf_str += b'BT\n0 Tr'
+            pdf_str += b'BT\n3 Tr'
             old_fontsize = 0
             new_block = True
 
