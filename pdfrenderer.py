@@ -102,9 +102,13 @@ class TessPDFRenderer(object):
                         writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
 
                     word_x1, word_y1, word_x2, word_y2 = word['bbox']
+
+                    word_height = word_y2 - word_y1
+
                     x, y, word_length = GetWordBaseline(writing_direction, ppi, height,
-                            word_x1, word_y1, word_x2, word_y2, line_x1, line_y1,
-                            line_x2, line_y2)
+                            word_x1, word_y1, word_x2, word_y2,
+                            line_x1, line_y1 + word_height,
+                            line_x2, line_y2 + word_height)
 
                     if (writing_direction != old_writing_direction) or new_block:
                         a, b, c, d = \
