@@ -177,7 +177,7 @@ class TessPDFRenderer(object):
 
         return pdf_str
 
-    def BeginDocumentHandler(self):
+    def BeginDocumentHandler(self, fontpath='pdf.ttf'):
         self.AppendPDFObject(b'%PDF-1.5\n%\xDE\xAD\xBE\xEB\n');
         self.AppendPDFObject(b'1 0 obj\n'
                              b'<<\n'
@@ -283,7 +283,7 @@ class TessPDFRenderer(object):
           b'endobj\n')
         self.AppendPDFObject(stream)
 
-        fontstream = open('pdf.ttf', 'rb').read()
+        fontstream = open(fontpath, 'rb').read()
         stream = (
           b'8 0 obj\n'
           b'<<\n'
