@@ -87,6 +87,8 @@ def threshold_image(pil_image, rev=False):
 #
 
 def create_mrc_components(image):
+    if image.mode != 'L':
+        image = image.convert('L')
     mask = threshold_image(image)
     #imask = inverse_mask(mask)
 
