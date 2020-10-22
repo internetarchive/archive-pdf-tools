@@ -3,47 +3,17 @@
 #
 # Please look at the code in there for documentation, etc.
 # TODO: Code is probably Apache Licensed as well
-#
-# Port:
-# - BeginDocumentHandler
-# - AddImageHandler(hOCR page res)
-# - EndDocumentHandler
-#
-# Usage of TessBaseAPI:
-# - getSourceYResolution (ppi)
-# - Get Iterator for words//lines
-# - GetInputImage
-# - GetInputName
-# - Get output jpg quality
-
-# TODO:
-# - Code can already output multiple PDFs, let's see if we can use that (I
-# suppose it uses that in batch processing mode
-# - Get DPI/PPI from somewhere
 
 from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
 
 ## BEGIN EXTRA DEFS
+# TODO: fix these
 WRITING_DIRECTION_RIGHT_TO_LEFT = 42
 WRITING_DIRECTION_TOP_TO_BOTTOM = 43
 WRITING_DIRECTION_LEFT_TO_RIGHT = 0
 ## END EXTRA DEFS
-
-# TODO: Per hOCR page, extract all info we need:
-# - carea
-#   -> lines
-#      * baseline
-#      * bbox(?)
-#      -> words
-#      * bbox
-#      * writing direction
-#      * (fake) baseline
-#      * x_fsize (fontsize)
-#
-# From scandata:
-# - PPI
 
 K_CHAR_WIDTH = 2
 K_MAX_BYTES_PER_CODEPOINTS = 20
@@ -537,50 +507,6 @@ def floatbytes(v, prec=8):
     return fmt_str.format(v).encode('ascii')
 
 
-def polyval(poly, x):
-    return x * poly[0] + poly[1]
-
-
-# TODO: Reverse this transformation
-"""
-static void AddBaselineCoordsTohOCR(const PageIterator* it,
-                                    PageIteratorLevel level,
-                                    std::stringstream& hocr_str) {
-  tesseract::Orientation orientation = GetBlockTextOrientation(it);
-  if (orientation != ORIENTATION_PAGE_UP) {
-    hocr_str << "; textangle " << 360 - orientation * 90;
-    return;
-  }
-
-  int left, top, right, bottom;
-  it->BoundingBox(level, &left, &top, &right, &bottom);
-
-  // Try to get the baseline coordinates at this level.
-  int x1, y1, x2, y2;
-  if (!it->Baseline(level, &x1, &y1, &x2, &y2)) return;
-  // Following the description of this field of the hOCR spec, we convert the
-  // baseline coordinates so that "the bottom left of the bounding box is the
-  // origin".
-  x1 -= left;
-  x2 -= left;
-  y1 -= bottom;
-  y2 -= bottom;
-
-  // Now fit a line through the points so we can extract coefficients for the
-  // equation:  y = p1 x + p0
-  if (x1 == x2) {
-    // Problem computing the polynomial coefficients.
-    return;
-  }
-  double p1 = (y2 - y1) / static_cast<double>(x2 - x1);
-  double p0 = y1 - p1 * x1;
-
-  hocr_str << "; baseline " << round(p1 * 1000.0) / 1000.0 << " "
-           << round(p0 * 1000.0) / 1000.0;
-}
-"""
-
-
 # XXX: Perhaps move this parsing elsewhere
 from lxml import etree, html
 import re
@@ -649,54 +575,6 @@ def hocr_to_word_data(hocr_page):
 
     return paragraphs
 
-
-"""
-        # TESTING
-        fontsize = 20
-        pdf_str += b'BT\n0 Tr'
-        #pdf_str += b'BT\n3 Tr'
-
-        x = 100
-        y = 100
-        a, b, c, d = AffineMatrix(-9001, 100, 100, 100, 100)
-        print(a,b,c,d)
-        a,b,c,d =1,0,0,1
-        pdf_str += b' ' + floatbytes(prec(a), prec=3)
-        pdf_str += b' ' + floatbytes(prec(b), prec=3)
-        pdf_str += b' ' + floatbytes(prec(c), prec=3)
-        pdf_str += b' ' + floatbytes(prec(d), prec=3)
-        pdf_str += b' ' + floatbytes(prec(x), prec=3)
-        pdf_str += b' ' + floatbytes(prec(y), prec=3)
-        pdf_str += b' Tm '
-        pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
-
-        word = 'HELLO'
-        word_length = len(word)
-
-        pdf_word = b''
-        pdf_word_len = 0
-        for char in word:
-            codepoint = ord(char)
-            ok, utf16 = CodepointToUtf16be(codepoint)
-            if ok:
-                pdf_word += utf16
-                pdf_word_len += 1
-
-        pdf_word += b'0020'
-        pdf_word_len += 1
-
-        h_stretch = K_CHAR_WIDTH * prec(100.0 * word_length / (fontsize * pdf_word_len))
-        pdf_str += floatbytes(h_stretch) + b' Tz'
-        pdf_str += b' [ <' + pdf_word
-        pdf_str += b'> ] TJ'
-
-        pdf_str += b' \n';
-        pdf_str += b'ET\n'
-        # END TESTING
-
-        return pdf_str # XXX
-
-"""
 
 if __name__ == '__main__':
     # TODO improve
