@@ -1,157 +1,238 @@
-import fitz
 import sys
+import os
+import subprocess
+from os import remove
 
+from PIL import Image
+import fitz
+
+from mrc import KDU_EXPAND, create_mrc_components, encode_mrc_images
 from pdfrenderer import TessPDFRenderer, hocr_page_iterator, hocr_to_word_data
 
-STOP = 10000
 
-in_doc = fitz.open(sys.argv[1])
-hocr_iter = hocr_page_iterator(sys.argv[2])
-outfile = sys.argv[3]
+VERSION = '0.0.1'
+SOFTWARE = 'Internet Archive PDF recoder'
 
-# TODO: read scandata and use it to skip pages
-
-# Create text-only PDF first, and stick images on it
-render = TessPDFRenderer()
-render.BeginDocumentHandler()
-for idx, page in enumerate(in_doc):
-    hocr_page, (w, h) = hocr_iter.__next__()
-    print('Page width, height:', page.rect.width, page.rect.height)
-    print('hocr width, height:', w, h)
-
-    scaler = page.rect.width / w
-    print('scaler:', scaler)
-
-    width = page.rect.width
-    height = page.rect.height
-    ppi = 72 / scaler
-
-    word_data = hocr_to_word_data(hocr_page)
-    render.AddImageHandler(word_data, width, height, ppi=ppi)
-    if idx > STOP:
-        break
-
-render.EndDocumentHandler()
-
-fp = open('/tmp/tess.pdf', 'wb+')
-fp.write(render._data)
-fp.close()
-
-outdoc = fitz.open('/tmp/tess.pdf')
+# TODO:
+# - Store arguments passed to this program in PDF metadata (compression
+#   settings, etc)
 
 
-mode = 2
+STOP = None
+VERBOSE = False
 
-for idx, page in enumerate(outdoc):
-    print('IDX:', idx)
-    # TODO: pixmaps support colourspaces, so let's see if we can get those set
-    # somehow.
+IMAGE_MODE_PASSTHROUGH = 0
+IMAGE_MODE_PIXMAP = 1
+IMAGE_MODE_MRC = 2
 
-    img = sorted(in_doc.getPageImageList(idx))[idx]
-    xref = img[0]
-    maskxref = img[1]
-    if mode == 0:
-        image = in_doc.extractImage(xref)
-        page.insertImage(page.rect, stream=image["image"])
-    elif mode == 1:
-        pixmap = fitz.Pixmap(in_doc, xref)
-        page.insertImage(page.rect, pixmap=pixmap)
-    elif mode == 2:
-        # mrc
-        image = in_doc.extractImage(xref)
-        jpx = image["image"]
-        fp = open('/tmp/img.jpx', 'wb+')
-        fp.write(jpx)
-        fp.close()
+def create_tess_textonly_pdf(in_pdf, hocr_file, save_path):
+    hocr_iter = hocr_page_iterator(hocr_file)
 
-        from mrc import KDU_EXPAND, create_mrc_components, encode_mrc_images
-        from os import remove
-        import subprocess
-        from PIL import Image
-        subprocess.check_call([KDU_EXPAND, '-i', '/tmp/img.jpx', '-o', '/tmp/in.tiff'])
-        mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
-        mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg)
+    render = TessPDFRenderer()
+    render.BeginDocumentHandler()
+    for idx, page in enumerate(in_pdf):
+        hocr_page, (w, h) = hocr_iter.__next__()
 
-        bg_contents = open(bg_f, 'rb').read()
-        page.insertImage(page.rect, stream=bg_contents, mask=None)
+        width = page.rect.width
+        height = page.rect.height
 
-        fg_contents = open(fg_f, 'rb').read()
-        mask_contents = open(mask_f, 'rb').read()
+        scaler = page.rect.width / w
+        ppi = 72 / scaler
 
-        page.insertImage(page.rect, stream=fg_contents, mask=mask_contents)
-        remove(mask_f)
-        remove(bg_f)
-        remove(fg_f)
+        word_data = hocr_to_word_data(hocr_page)
+        render.AddImageHandler(word_data, width, height, ppi=ppi)
+        if STOP is not None and idx > STOP:
+            break
 
-    if idx > STOP:
-        break
+    render.EndDocumentHandler()
 
-print('Metadata:', in_doc.metadata)
-doc_md = in_doc.metadata
-
-#Metadata: {'format': 'PDF 1.5', 'title': None, 'author': None, 'subject': None, 'keywords': None, 'creator': None, 'producer': None, 'creationDate': None, 'modDate': None, 'encryption': None}
-
-doc_md['producer'] = 'Internet Archive Recoder 0.0.1' # TODO
-outdoc.setMetadata(doc_md)
-
-xmlxref = outdoc._getNewXref()
-stream=b'''<?xpacket begin="..." id="W5M0MpCehiHzreSzNTczkc9d"?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/">
-  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-    <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
-      <xmp:CreateDate>2020-10-15T01:06:14+00:00</xmp:CreateDate>
-      <xmp:MetadataDate>2020-10-15T01:06:14+00:00</xmp:MetadataDate>
-      <xmp:ModifyDate>2020-10-15T01:06:14+00:00</xmp:ModifyDate>
-      <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
-    </rdf:Description>
-    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
-      <dc:title>
-        <rdf:Alt>
-          <rdf:li xml:lang="x-default">a delightful collection of various items for testing</rdf:li>
-        </rdf:Alt>
-      </dc:title>
-      <dc:creator>
-        <rdf:Seq>
-          <rdf:li>Example, Joe</rdf:li>
-        </rdf:Seq>
-      </dc:creator>
-      <dc:language>
-        <rdf:Bag>
-          <rdf:li>en</rdf:li>
-        </rdf:Bag>
-      </dc:language>
-    </rdf:Description>
-    <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
-      <pdfaid:part>2</pdfaid:part>
-      <pdfaid:conformance>B</pdfaid:conformance>
-    </rdf:Description>
-  </rdf:RDF>
-</x:xmpmeta>
-<?xpacket end="r"?> '''
-
-outdoc.updateObject(xmlxref, '<<\n  /Type /Metadata\n/Subtype /XML>>')
-outdoc.updateStream(xmlxref, stream, new=True)
+    fp = open('/tmp/tess.pdf', 'wb+')
+    fp.write(render._data)
+    fp.close()
 
 
-catalogxref = outdoc.PDFCatalog()
-print('catalogxref:', catalogxref)
-s = outdoc.xrefObject(outdoc.PDFCatalog())
-s = s[:-2]
-s += '  /Metadata %d 0 R' % xmlxref
-s += '>>'
-outdoc.updateObject(catalogxref, s)
+def insert_images(from_pdf, to_pdf, mode):
+    if VERBOSE:
+        print('Converting with image mode:', mode)
+
+    for idx, page in enumerate(to_pdf):
+        # TODO: pixmaps support colourspaces, so let's see if we can get those set
+        # somehow.
+
+        # XXX: TODO: FIXME: MEGAHACK: For some reason the _imgonly PDFs
+        # generated by us have all images on all pages according to pymupdf, so
+        # hack around that for now.
+        img = sorted(from_pdf.getPageImageList(idx))[idx]
+        #img = from_pdf.getPageImageList(idx)[0]
+
+        xref = img[0]
+        maskxref = img[1]
+        if mode == IMAGE_MODE_PASSTHROUGH:
+            image = from_pdf.extractImage(xref)
+            page.insertImage(page.rect, stream=image["image"], overlay=False)
+        elif mode == IMAGE_MODE_PIXMAP:
+            pixmap = fitz.Pixmap(from_pdf, xref)
+            page.insertImage(page.rect, pixmap=pixmap, overlay=False)
+        elif mode == IMAGE_MODE_MRC:
+            # mrc
+            image = from_pdf.extractImage(xref)
+            jpx = image["image"]
+            fp = open('/tmp/img.jpx', 'wb+')
+            fp.write(jpx)
+            fp.close()
+
+            subprocess.check_call([KDU_EXPAND, '-i', '/tmp/img.jpx', '-o',
+                '/tmp/in.tiff'], stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL)
+
+            mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
+            mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg)
+
+            bg_contents = open(bg_f, 'rb').read()
+            page.insertImage(page.rect, stream=bg_contents, mask=None,
+                    overlay=False)
+
+            fg_contents = open(fg_f, 'rb').read()
+            mask_contents = open(mask_f, 'rb').read()
+
+            page.insertImage(page.rect, stream=fg_contents, mask=mask_contents,
+                    overlay=True)
+
+            # Remove leftover files
+            remove(mask_f)
+            remove(bg_f)
+            remove(fg_f)
+
+        if STOP is not None and idx > STOP:
+            break
+
+def write_metadata(from_pdf, to_pdf):
+    doc_md = in_pdf.metadata
+
+    #Metadata: {'format': 'PDF 1.5', 'title': None, 'author': None, 'subject': None, 'keywords': None, 'creator': None, 'producer': None, 'creationDate': None, 'modDate': None, 'encryption': None}
+
+    # TODO: Set other metadata keys (as above)
+
+    # TODO: Make sure to link back to archive.org item somehow? (optional extra
+    # metadata args)
+    doc_md['producer'] = '%s (version %s)' % (SOFTWARE, VERSION)
+    to_pdf.setMetadata(doc_md)
+
+    # TODO: Update this and make sure it's all nice and correct
+    xmlxref = to_pdf._getNewXref()
+    stream=b'''<?xpacket begin="..." id="W5M0MpCehiHzreSzNTczkc9d"?>
+    <x:xmpmeta xmlns:x="adobe:ns:meta/">
+      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+          <xmp:CreateDate>2020-10-15T01:06:14+00:00</xmp:CreateDate>
+          <xmp:MetadataDate>2020-10-15T01:06:14+00:00</xmp:MetadataDate>
+          <xmp:ModifyDate>2020-10-15T01:06:14+00:00</xmp:ModifyDate>
+          <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
+        </rdf:Description>
+        <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:title>
+            <rdf:Alt>
+              <rdf:li xml:lang="x-default">a delightful collection of various items for testing</rdf:li>
+            </rdf:Alt>
+          </dc:title>
+          <dc:creator>
+            <rdf:Seq>
+              <rdf:li>Example, Joe</rdf:li>
+            </rdf:Seq>
+          </dc:creator>
+          <dc:language>
+            <rdf:Bag>
+              <rdf:li>en</rdf:li>
+            </rdf:Bag>
+          </dc:language>
+        </rdf:Description>
+        <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+          <pdfaid:part>2</pdfaid:part>
+          <pdfaid:conformance>B</pdfaid:conformance>
+        </rdf:Description>
+      </rdf:RDF>
+    </x:xmpmeta>
+    <?xpacket end="r"?> '''
+
+    to_pdf.updateObject(xmlxref, '<<\n  /Type /Metadata\n/Subtype /XML>>')
+    to_pdf.updateStream(xmlxref, stream, new=True)
 
 
-#trailerxref = outdoc.PDFTrailer()
-#print('trailerxref:', trailerxref)
-#s = outdoc.xrefObject(outdoc.PDFTrailer())
-#s = s[:-2]
-#s += '  /ID [ <5326FB76C88D9B75E16E613188ACE1B5> <5326FB76C88D9B75E16E613188ACE1B5> ]'
-#s += '>>'
-#outdoc.updateObject(catalogxref, s)
+    catalogxref = to_pdf.PDFCatalog()
+    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    s = s[:-2]
+    s += '  /Metadata %d 0 R' % xmlxref
+    s += '>>'
+    to_pdf.updateObject(catalogxref, s)
 
-# TODO: For ID writing, we can just open the PDF and fix the trailer manually,
-# all we need to do is insert a literal string with two hashes.
 
-print(fitz.TOOLS.mupdf_warnings())
-outdoc.save(outfile, deflate=True)
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(
+            description='PDF recoder version %s.' % VERSION +
+                        ' Compresses PDFs with images and inserts text layers '
+                        ' based on hOCR input files.')
+    parser.add_argument('-i', '--from-pdf', type=str, default=None,
+                        help='Input PDF (containing images) to recode')
+    parser.add_argument('-T', '--hocr-file', type=str, default=None,
+                        help='hOCR file containing page information '
+                              '(currently not optional)')
+    #parser.add_argument('-S', '--scandata-file', type=str, default=None,
+    #                    help='Scandata XML file containing information on '
+    #                          'which pages to skip (optional)')
+    parser.add_argument('-o', '--out-pdf', type=str, default=None,
+                        help='Output file to write recoded PDF to')
+    parser.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
+                        help='Compression mode. 0 is pass-through, 1 is pixmap'
+                              ' 2 is MRC (default is 2)', type=int)
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='Verbose output')
+    parser.add_argument('-t', '--stop-after', default=None, type=int,
+                        help='Stop after N pages (default is no stop)')
+
+
+    args = parser.parse_args()
+    if args.from_pdf is None or args.out_pdf is None:
+        sys.stderr.write('***** Error: --from-pdf or --out-pdf missing\n\n')
+        parser.print_help()
+        sys.exit(1)
+
+    in_pdf = fitz.open(args.from_pdf)
+    hocr_file = args.hocr_file
+    outfile = args.out_pdf
+
+    VERBOSE = args.verbose
+    STOP = args.stop_after
+
+    # TODO: read scandata and use it to skip pages
+
+    # TODO: use tempfile for this, or even a buffer, since it's typically quite
+    # small
+    tess_tmp_path = '/tmp/tess.pdf'
+
+    if args.verbose:
+        print('Creating text only PDF')
+
+    # 1. Create text-only PDF from hOCR first, but honour page sizes of in_pdf
+    create_tess_textonly_pdf(in_pdf, hocr_file, tess_tmp_path)
+
+    if args.verbose:
+        print('Inserting (and compressing) images')
+    # 2. Load tesseract PDF and stick images in the PDF
+    # We open the generated file but do not modify it in place
+    outdoc = fitz.open(tess_tmp_path)
+    insert_images(in_pdf, outdoc, mode=args.image_mode)
+
+    # 3. Write metadata
+    write_metadata(in_pdf, outdoc)
+
+    # 4. Save
+    #print(fitz.TOOLS.mupdf_warnings())
+    outdoc.save(outfile, deflate=True)
+
+    oldsize = os.path.getsize(args.from_pdf)
+    newsize = os.path.getsize(args.out_pdf)
+    print('Compression ratio: %f%%' % (oldsize / newsize))
+
+    # 5. Remove leftover files
+    remove(tess_tmp_path)
