@@ -50,7 +50,7 @@ KDU_COMPRESS = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_compress
 KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
 
 
-def threshold_image(pil_image):
+def threshold_image(pil_image, rev=False):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
     the text more readable. Tesseract uses Otsu thresholding, which in our
@@ -64,12 +64,18 @@ def threshold_image(pil_image):
     otsu = True
     if otsu:
         binary_otsu = threshold_otsu(img)
-        binary_img = img < binary_otsu
+        if rev:
+            binary_img = img > binary_otsu
+        else:
+            binary_img = img < binary_otsu
     else:
         block_size = 21
         binary_local = threshold_local(img, block_size, method='gaussian')
         #binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
-        binary_img = img < binary_local
+        if not rev:
+            binary_img = img < binary_local
+        else:
+            binary_img = img > binary_local
 
     return binary_img
 
