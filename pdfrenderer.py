@@ -7,6 +7,7 @@
 from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
+import datetime
 
 ## BEGIN EXTRA DEFS
 # TODO: fix these
@@ -17,6 +18,9 @@ WRITING_DIRECTION_LEFT_TO_RIGHT = 0
 
 K_CHAR_WIDTH = 2
 K_MAX_BYTES_PER_CODEPOINTS = 20
+
+VERSION = '0.0.1'
+SOFTWARE = 'Archive.org hOCR to PDF renderer (based on Tesseract)'
 
 class TessPDFRenderer(object):
 
@@ -295,7 +299,7 @@ class TessPDFRenderer(object):
         objsize += len(endstream_obj)
         self.AppendPDFObjectDIY(objsize)
 
-    def EndDocumentHandler(self):
+    def EndDocumentHandler(self, title='No title provided'):
         kPagesObjectNumber = 2
 
         self._offsets[kPagesObjectNumber] = self._offsets[-1]
@@ -318,7 +322,6 @@ class TessPDFRenderer(object):
         self._offsets[-1] += pages_objsize
 
         utf16_title = b'FEFF'
-        title = "TEST" # FIXME
         for c in title:
             codepoint = ord(c)
             ok, utf16 = CodepointToUtf16be(codepoint)
@@ -327,12 +330,14 @@ class TessPDFRenderer(object):
             if ok:
                 utf16_title += utf16
 
+        create_date = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S').encode('ascii')
+
         stream = bytes()
         stream += (
                 str(self._obj).encode('ascii') + b' 0 obj\n'
                 b'<<\n'
-                b'  /Producer (Tesseract ' + b'4.1.1' + b')\n'  # XXX: TODO: version
-                b'  /CreationDate (D:' + b'TODO' + b')\n'
+                b'  /Producer (' + SOFTWARE.encode('ascii') + b' ' + VERSION.encode('ascii') + b')\n'
+                b'  /CreationDate (D:' + create_date + b')\n'
                 b'  /Title <' + utf16_title + b'>\n'
                 b'>>\n'
                 b'endobj\n')
@@ -584,6 +589,7 @@ if __name__ == '__main__':
     # TODO improve
     import sys
     hocrfile = sys.argv[1]
+    outfile = sys.argv[2]
 
     render = TessPDFRenderer()
 
@@ -604,9 +610,9 @@ if __name__ == '__main__':
         #if idx > 2:
         #    break
 
-    render.EndDocumentHandler()
+    render.EndDocumentHandler(title='Just a title')
 
-    fp = open('tessout.pdf', 'wb+')
+    fp = open(outfile, 'wb+')
     fp.write(render._data)
     fp.close()
 
