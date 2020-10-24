@@ -46,8 +46,10 @@ TODO:
 """
 
 
-KDU_COMPRESS = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_compress'
-KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
+KDU_COMPRESS = 'kdu_compress'
+KDU_EXPAND = 'kdu_expand'
+#KDU_COMPRESS = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_compress'
+#KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
 
 
 def threshold_image(pil_image, rev=False):
