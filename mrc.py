@@ -119,19 +119,19 @@ def encode_mrc_images(mask, np_bg, np_fg):
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png')
     close(fd)
-    fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2')
-    close(fd)
+    #fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2')
+    #close(fd)
 
     img = Image.fromarray(mask)
     img.save(mask_img_png, compress_level=0) # XXX: Check compress_level vs compress
 
-    out = subprocess.check_output(['jbig2', mask_img_png])
-    #out = subprocess.check_output(['jbig2', '--pdf', mask_img_png])
-    fp= open(mask_img_jbig2, 'wb+')
-    fp.write(out)
-    fp.close()
-    # TODO: re-add this
-    #remove(mask_img_png)
+    #out = subprocess.check_output(['jbig2', mask_img_png])
+    ##out = subprocess.check_output(['jbig2', '--pdf', mask_img_png])
+    #fp= open(mask_img_jbig2, 'wb+')
+    #fp.write(out)
+    #fp.close()
+    ## TODO: re-add this
+    ##remove(mask_img_png)
 
     # Create background
     fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff')
