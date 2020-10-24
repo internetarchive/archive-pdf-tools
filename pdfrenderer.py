@@ -540,7 +540,7 @@ def hocr_page_iterator(hocrfile):
 
         yield hocr_page, (w,h )
 
-def hocr_to_word_data(hocr_page):
+def hocr_to_word_data(hocr_page, scaler):
     paragraphs = []
 
     for par in hocr_page.xpath('.//*[@class="ocr_par"]'):
@@ -575,6 +575,7 @@ def hocr_to_word_data(hocr_page):
                 f_sizeraw = X_FSIZE_REGEX.search(word.attrib['title'])
                 if f_sizeraw:
                     x_fsize = float(f_sizeraw.group(1))
+                    x_fsize *= scaler
                 else:
                     x_fsize = 0. # Will get fixed later on
 
@@ -610,7 +611,7 @@ if __name__ == '__main__':
         width /= scaler
         height /= scaler
         ppi = PPI * scaler
-        word_data = hocr_to_word_data(page)
+        word_data = hocr_to_word_data(page, scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi)
         #idx += 1
         #if idx > 2:
