@@ -54,7 +54,7 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
         scaler = page.rect.width / w
         ppi = 72 / scaler
 
-        word_data = hocr_to_word_data(hocr_page)
+        word_data = hocr_to_word_data(hocr_page, scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi)
         if STOP is not None and idx >= STOP:
             break
