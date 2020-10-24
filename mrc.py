@@ -114,7 +114,7 @@ def create_mrc_components(image):
     return mask, np_bg, np_fg
 
 
-def encode_mrc_images(mask, np_bg, np_fg):
+def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05):
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png')
@@ -146,9 +146,8 @@ def encode_mrc_images(mask, np_bg, np_fg):
 
     subprocess.check_call([KDU_COMPRESS,
         '-i', bg_img_tiff, '-o', bg_img_jp2,
-        '-rate', '0.1',
-        # '-roi', '/tmp/image-thres.pgm,0.99',
-        ])
+        '-rate', str(bg_bitrate),
+        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(bg_img_tiff)
 
     # Create foreground
@@ -162,11 +161,13 @@ def encode_mrc_images(mask, np_bg, np_fg):
     fg_img = Image.fromarray(np_fg)
     fg_img.save(fg_img_tiff)
 
+    subprocess.check_call(['convert', mask_img_png, mask_img_png + '.pgm'])
     subprocess.check_call([KDU_COMPRESS,
         '-i', fg_img_tiff, '-o', fg_img_jp2,
-        '-rate', '0.05',
-        # '-roi', '/tmp/image-thres.pgm,0.99',
-        ])
+        '-rate', str(fg_bitrate),
+         '-roi', mask_img_png + '.pgm,0.5',
+        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    remove(mask_img_png + '.pgm')
     remove(fg_img_tiff)
 
 
@@ -201,7 +202,8 @@ if __name__ == '__main__':
     i = 0
     for f in sorted(glob(inpath + '*.jp2')):
         # XXX: Make this /tmp/in.tiff) a tempfile
-        subprocess.check_call([KDU_EXPAND, '-i', f, '-o', '/tmp/in.tiff'])
+        subprocess.check_call([KDU_EXPAND, '-i', f, '-o', '/tmp/in.tiff'],
+                              stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg)
 
