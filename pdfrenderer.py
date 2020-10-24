@@ -519,6 +519,7 @@ def floatbytes(v, prec=8):
 # XXX: Perhaps move this parsing elsewhere
 from lxml import etree, html
 import re
+import gzip
 
 BBOX_REGEX = re.compile(r'bbox((\s+\d+){4})')
 BASELINE_REGEX = re.compile(r'baseline((\s+[\d\.\-]+){2})')
@@ -526,6 +527,11 @@ X_SIZE_REGEX = re.compile(r'x_size((\s+[\d\.\-]+){1})')
 X_FSIZE_REGEX = re.compile(r'x_fsize((\s+[\d\.\-]+){1})')
 
 def hocr_page_iterator(hocrfile):
+    if hocrfile.endswith('.gz'):
+        fp = gzip.open(hocrfile)
+    else:
+        fp = open(hocrfile)
+
     hocr = etree.parse(hocrfile, html.XHTMLParser())
     hocr_pages = hocr.xpath("//*[@class='ocr_page']")
     for hocr_page in hocr_pages:
