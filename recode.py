@@ -3,6 +3,7 @@ import os
 import subprocess
 from os import remove
 from time import time
+from datetime import datetime
 
 from PIL import Image
 import fitz
@@ -13,7 +14,8 @@ from scandata import scandata_xml_get_skip_pages
 
 
 VERSION = '0.0.1'
-SOFTWARE = 'Internet Archive PDF recoder'
+# XXX: More stable URL?
+SOFTWARE = 'Internet Archive PDF recoder - https://git.archive.org/merlijn/archive-pdf-tools'
 
 # TODO:
 # - Store arguments passed to this program in PDF metadata (compression
@@ -155,7 +157,7 @@ def write_pdfa(to_pdf, iccpath='tmp.icc'):
     to_pdf.updateObject(catalogxref, s)
 
 
-def write_metadata(from_pdf, to_pdf):
+def write_metadata(from_pdf, to_pdf, extra_metadata):
     # TODO: pass more metadata as args
     doc_md = in_pdf.metadata
 
@@ -168,56 +170,82 @@ def write_metadata(from_pdf, to_pdf):
     # metadata args)
 
     doc_md['producer'] = '%s (version %s)' % (SOFTWARE, VERSION)
-    # XXX: identifier / url here
-    doc_md['keywords'] = 'https://archive.org/details/ITEMHERE'
+
+    if 'url' in extra_metadata:
+        doc_md['keywords'] = extra_metadata['url']
+    if 'title' in extra_metadata:
+        doc_md['title'] = extra_metadata['title']
+    if 'creator' in extra_metadata:
+        doc_md['title'] = extra_metadata['creator']
 
     to_pdf.setMetadata(doc_md)
 
-    # TODO: Update this and make sure it's all nice and correct
-    # TODO: Write/add:
-    # - CreatorTool
-    # - CreateDate
-    # - MetadataDate
-    # - ModifyDate
-    # - Title
-    # - Creator
-    # - Language bag
-    # - *link back* to archive.org item
-    stream=b'''<?xpacket begin="..." id="W5M0MpCehiHzreSzNTczkc9d"?>
-    <x:xmpmeta xmlns:x="adobe:ns:meta/">
-      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
-          <xmp:CreateDate>2020-10-15T01:06:14+00:00</xmp:CreateDate>
-          <xmp:MetadataDate>2020-10-15T01:06:14+00:00</xmp:MetadataDate>
-          <xmp:ModifyDate>2020-10-15T01:06:14+00:00</xmp:ModifyDate>
-          <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
-        </rdf:Description>
-        <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <dc:title>
-            <rdf:Alt>
-              <rdf:li xml:lang="x-default">a delightful collection of various items for testing</rdf:li>
-            </rdf:Alt>
-          </dc:title>
-          <dc:creator>
-            <rdf:Seq>
-              <rdf:li>Example, Joe</rdf:li>
-            </rdf:Seq>
-          </dc:creator>
-          <dc:language>
-            <rdf:Bag>
-              <rdf:li>en</rdf:li>
-            </rdf:Bag>
-          </dc:language>
-        </rdf:Description>
-        <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
-          <pdfaid:part>3</pdfaid:part>
-          <pdfaid:conformance>B</pdfaid:conformance>
-        </rdf:Description>
-      </rdf:RDF>
-    </x:xmpmeta>
-    <?xpacket end="r"?> '''
+    xml_xref = from_pdf._getXmlMetadataXref()
+    if xml_xref > 0:
+        # XXX: If there is a xml metadata stream we just copy it instead of
+        # making our own, but we might want to raise warnings for that.
+        raise Exception('Decide what to do with embedded XML')
+        xml_bytes = from_pdf.xrefStream(xml_xref)
+        to_pdf.setXmlMetadata(xml_bytes.decode('utf-8'))
+    else:
 
-    to_pdf.setXmlMetadata(stream.decode('utf-8'))
+        # TODO: Update this and make sure it's all nice and correct
+        # TODO: Write/add:
+        # - CreatorTool
+        # - CreateDate
+        # - MetadataDate
+        # - ModifyDate
+        # - Title
+        # - Creator
+        # - Language bag
+        # - *link back* to archive.org item
+
+
+        current_time = datetime.utcnow().isoformat(timespec='seconds') + '+00:00'
+
+        stream='''<?xpacket begin="..." id="W5M0MpCehiHzreSzNTczkc9d"?>
+        <x:xmpmeta xmlns:x="adobe:ns:meta/">
+          <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+              <xmp:CreateDate>{createdate}</xmp:CreateDate>
+              <xmp:MetadataDate>{metadatadate}</xmp:MetadataDate>
+              <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
+              <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+              <dc:title>
+                <rdf:Alt>
+                  <rdf:li xml:lang="x-default">{title}</rdf:li>
+                </rdf:Alt>
+              </dc:title>
+              <dc:creator>
+                <rdf:Seq>
+                  <rdf:li>{creator}</rdf:li>
+                </rdf:Seq>
+              </dc:creator>
+              <dc:language>
+                <rdf:Bag>
+                  <rdf:li>{language}</rdf:li>
+                </rdf:Bag>
+              </dc:language>
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+              <pdfaid:part>3</pdfaid:part>
+              <pdfaid:conformance>B</pdfaid:conformance>
+            </rdf:Description>
+          </rdf:RDF>
+        </x:xmpmeta>
+        <?xpacket end="r"?>'''.format(
+                # XXX: We really just want to omit this metadata alltogether if it's
+                # not provided
+                title=extra_metadata.get('title', 'No title provided'),
+                creator=extra_metadata.get('creator', 'No creator provided'),
+                language=extra_metadata.get('language', 'en'),
+                createdate=current_time,
+                metadatadate=current_time,
+                modifydate=current_time)
+
+    to_pdf.setXmlMetadata(stream)
 
 
 if __name__ == '__main__':
@@ -255,11 +283,16 @@ if __name__ == '__main__':
     parser.add_argument('--fg-bitrate', default=0.05, type=float,
                         help='Bits per pixels for foreground layer.'
                              'Default is 0.05')
+    parser.add_argument('--metadata-url', type=str, default=None,
+                        help='URL describing document, if any')
+    parser.add_argument('--metadata-title', type=str, default=None,
+                        help='Title of PDF document')
+    parser.add_argument('--metadata-creator', type=str, default=None,
+                        help='Creator of PDF document')
+    parser.add_argument('--metadata-language', type=str, default=None,
+                        help='Language of PDF document (in ISO 639-1?)')
 
     # TODO: Lots of options for various metadata parts to write:
-    # --metadata-url (url to document)
-    # --metadata-title
-    # --metadata-creator
     # --metadata-language
     # --metadata-ETC
 
@@ -282,11 +315,11 @@ if __name__ == '__main__':
 
     start_time = time()
 
+    # Figure out if we have scandata, and figure out if we want to skip pages
+    # based on scandata.
     skip_pages = []
     if args.scandata_file is not None:
         skip_pages = scandata_xml_get_skip_pages(args.scandata_file)
-
-    # TODO: read scandata and use it to skip pages
 
     # TODO: use tempfile for this, or even a buffer, since it's typically quite
     # small
@@ -303,6 +336,7 @@ if __name__ == '__main__':
     # 2. Load tesseract PDF and stick images in the PDF
     # We open the generated file but do not modify it in place
     outdoc = fitz.open(tess_tmp_path)
+
     insert_images(in_pdf, outdoc, mode=args.image_mode,
                   bg_bitrate=args.bg_bitrate, fg_bitrate=args.fg_bitrate)
 
@@ -310,7 +344,16 @@ if __name__ == '__main__':
     write_pdfa(outdoc)
 
     # 4. Write metadata
-    write_metadata(in_pdf, outdoc)
+    extra_metadata = {}
+    if args.metadata_url:
+        extra_metadata['url'] = args.metadata_url
+    if args.metadata_title:
+        extra_metadata['title'] = args.metadata_title
+    if args.metadata_creator:
+        extra_metadata['creator'] = args.metadata_creator
+    if args.metadata_language:
+        extra_metadata['language'] = args.metadata_language
+    write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
 
     # 5. Save
     if VERBOSE:
