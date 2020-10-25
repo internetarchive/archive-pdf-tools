@@ -11,10 +11,16 @@ import datetime
 
 ## BEGIN EXTRA DEFS
 # TODO: fix these
-WRITING_DIRECTION_RIGHT_TO_LEFT = 42
-WRITING_DIRECTION_TOP_TO_BOTTOM = 43
-WRITING_DIRECTION_LEFT_TO_RIGHT = 0
+WRITING_DIRECTION_UNSPECIFIED = 0
+WRITING_DIRECTION_LEFT_TO_RIGHT = 1
+WRITING_DIRECTION_RIGHT_TO_LEFT = 2
+WRITING_DIRECTION_TOP_TO_BOTTOM = 3
 ## END EXTRA DEFS
+
+wdmap = {
+    'ltr': WRITING_DIRECTION_LEFT_TO_RIGHT,
+    'rtl': WRITING_DIRECTION_RIGHT_TO_LEFT,
+}
 
 K_CHAR_WIDTH = 2
 K_MAX_BYTES_PER_CODEPOINTS = 20
@@ -103,7 +109,9 @@ class TessPDFRenderer(object):
                                 #ClipBaseline(ppi, x1, y1, x2, y2)
 
                         # TODO: Get writing direction from hOCR files (see hocrrenderer.cpp)
-                        writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
+                        writing_direction = word['writing_direction']
+                        if writing_direction == WRITING_DIRECTION_UNSPECIFIED:
+                            writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
 
                     word_x1, word_y1, word_x2, word_y2 = word['bbox']
 
@@ -546,6 +554,10 @@ def hocr_to_word_data(hocr_page, scaler):
     for par in hocr_page.xpath('.//*[@class="ocr_par"]'):
         paragraph_data = {'lines': []}
 
+        paragraph_writing_direction = WRITING_DIRECTION_UNSPECIFIED
+        if 'dir' in par.attrib:
+            paragraph_writing_direction = wdmap[par.attrib['dir']]
+
         for line in par.getchildren():
             line_data = {}
 
@@ -579,8 +591,15 @@ def hocr_to_word_data(hocr_page, scaler):
                 else:
                     x_fsize = 0. # Will get fixed later on
 
+                writing_direction = WRITING_DIRECTION_UNSPECIFIED
+                if 'dir' in word.attrib:
+                    writing_direction = wdmap[word.attrib['dir']]
+                else:
+                    writing_direction = paragraph_writing_direction
+
                 # TODO: writing direction
-                word_data.append({'bbox': box, 'text': rawtext, 'fontsize': x_fsize})
+                word_data.append({'bbox': box, 'text': rawtext, 'fontsize':
+                    x_fsize, 'writing_direction': writing_direction})
 
 
             line_data['words'] = word_data
