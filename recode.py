@@ -62,6 +62,7 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
             break
         if REPORT_EVERY is not None and idx % REPORT_EVERY == 0:
             print('Generated %d PDF text pages.' % idx)
+            sys.stdout.flush()
 
     render.EndDocumentHandler()
 
@@ -136,6 +137,7 @@ def insert_images(from_pdf, to_pdf, mode, bg_bitrate=None, fg_bitrate=None):
 
         if REPORT_EVERY is not None and idx % REPORT_EVERY == 0:
             print('Processed %d PDF pages.' % idx)
+            sys.stdout.flush()
 
 
 # XXX: tmp.icc - pick proper one and ship it with the tool, or embed it
