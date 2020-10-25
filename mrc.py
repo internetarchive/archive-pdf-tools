@@ -174,7 +174,7 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05,
 
     # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes their
     # JBIG2 support
-    print(mask_img_png, bg_img_jp2, fg_img_jp2)
+    #print(mask_img_png, bg_img_jp2, fg_img_jp2)
     return mask_img_png, bg_img_jp2, fg_img_jp2
     #print(mask_img_jbig2, bg_img_jp2, fg_img_jp2)
     #return mask_img_jbig2, bg_img_jp2, fg_img_jp2
