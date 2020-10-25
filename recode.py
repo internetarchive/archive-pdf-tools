@@ -4,6 +4,7 @@ import subprocess
 from os import remove
 from time import time
 from datetime import datetime
+from tempfile import mkstemp
 
 from PIL import Image
 import fitz
@@ -25,6 +26,7 @@ SOFTWARE = 'Internet Archive PDF recoder - https://git.archive.org/merlijn/archi
 STOP = None
 VERBOSE = False
 REPORT_EVERY = None
+TMP_DIR = None
 
 IMAGE_MODE_PASSTHROUGH = 0
 IMAGE_MODE_PIXMAP = 1
@@ -93,17 +95,26 @@ def insert_images(from_pdf, to_pdf, mode, bg_bitrate=None, fg_bitrate=None):
             # TODO: Do not assume JPX/JPEG2000 here, probe for image format
             image = from_pdf.extractImage(xref)
             jpx = image["image"]
-            fp = open('/tmp/img.jpx', 'wb+')
-            fp.write(jpx)
-            fp.close()
 
-            subprocess.check_call([KDU_EXPAND, '-i', '/tmp/img.jpx', '-o',
-                '/tmp/in.tiff'], stderr=subprocess.DEVNULL,
+            fd, jpx_in = mkstemp(prefix='in', suffix='.jpx', dir=TMP_DIR)
+            os.write(fd, jpx)
+            os.close(fd)
+
+            fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=TMP_DIR)
+            os.close(fd)
+            os.remove(tiff_in)
+
+            subprocess.check_call([KDU_EXPAND, '-i', jpx_in, '-o',
+                tiff_in], stderr=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL)
+            os.remove(jpx_in)
 
-            mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
+            mask, bg, fg = create_mrc_components(Image.open(tiff_in))
+            remove(tiff_in)
+
             mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
-                    bg_bitrate=bg_bitrate, fg_bitrate=fg_bitrate)
+                    bg_bitrate=bg_bitrate, fg_bitrate=fg_bitrate,
+                    tmp_dir=TMP_DIR)
 
             bg_contents = open(bg_f, 'rb').read()
             page.insertImage(page.rect, stream=bg_contents, mask=None,
@@ -272,6 +283,8 @@ if __name__ == '__main__':
                               ' 2 is MRC (default is 2)', type=int)
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='Verbose output')
+    parser.add_argument('--tmp-dir', default=None, type=str,
+                        help='Directory to store temporary intermediate images')
     parser.add_argument('--report-every', default=None, type=int,
                         help='Briefly repor on status every N pages '
                              '(default is no reporting)')
@@ -312,6 +325,7 @@ if __name__ == '__main__':
     STOP = args.stop_after
     if STOP is not None:
         STOP -= 1
+    TMP_DIR = args.tmp_dir
 
     start_time = time()
 
@@ -321,9 +335,9 @@ if __name__ == '__main__':
     if args.scandata_file is not None:
         skip_pages = scandata_xml_get_skip_pages(args.scandata_file)
 
-    # TODO: use tempfile for this, or even a buffer, since it's typically quite
-    # small
-    tess_tmp_path = '/tmp/tess.pdf'
+    # TODO: use a buffer, since it's typically quite small
+    fd, tess_tmp_path = mkstemp(prefix='pdfrenderer', suffix='.pdf', dir=TMP_DIR)
+    os.close(fd)
 
     if args.verbose:
         print('Creating text only PDF')

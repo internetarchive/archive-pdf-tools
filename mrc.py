@@ -114,12 +114,13 @@ def create_mrc_components(image):
     return mask, np_bg, np_fg
 
 
-def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05):
+def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05,
+                      tmp_dir=None):
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
-    fd, mask_img_png = mkstemp(prefix='mask', suffix='.png')
+    fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
     close(fd)
-    #fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2')
+    #fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2', dir=tmp_dir)
     #close(fd)
 
     img = Image.fromarray(mask)
@@ -134,9 +135,9 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05):
     ##remove(mask_img_png)
 
     # Create background
-    fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff')
+    fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
     close(fd)
-    fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2')
+    fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2', dir=tmp_dir)
     close(fd)
     remove(bg_img_jp2) # XXX: Kakadu doesn't want the file to exist, so what are
                        # we even doing
@@ -151,9 +152,9 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05):
     remove(bg_img_tiff)
 
     # Create foreground
-    fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff')
+    fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
     close(fd)
-    fd, fg_img_jp2 = mkstemp(prefix='fg', suffix='.jp2')
+    fd, fg_img_jp2 = mkstemp(prefix='fg', suffix='.jp2', dir=tmp_dir)
     close(fd)
     remove(fg_img_jp2) # XXX: Kakadu doesn't want the file to exist, so what are
                        # we even doing
