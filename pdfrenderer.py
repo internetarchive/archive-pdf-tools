@@ -108,7 +108,6 @@ class TessPDFRenderer(object):
                                 ClipBaseline(ppi, x1, y1, x2, y2 - diff)
                                 #ClipBaseline(ppi, x1, y1, x2, y2)
 
-                        # TODO: Get writing direction from hOCR files (see hocrrenderer.cpp)
                         writing_direction = word['writing_direction']
                         if writing_direction == WRITING_DIRECTION_UNSPECIFIED:
                             writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
@@ -475,15 +474,16 @@ def AffineMatrix(writing_direction, line_x1, line_y1, line_x2, line_y2):
     c = -sin(theta)
     d = cos(theta)
 
-    if writing_direction == WRITING_DIRECTION_RIGHT_TO_LEFT:
+    if writing_direction == WRITING_DIRECTION_LEFT_TO_RIGHT:
+        pass
+    elif writing_direction == WRITING_DIRECTION_RIGHT_TO_LEFT:
         a = -a;
         b = -b;
     elif writing_direction == WRITING_DIRECTION_TOP_TO_BOTTOM:
         # From original Tess code: TODO(jbreiden) Consider using the vertical PDF writing mode.
         pass
     else:
-        pass
-        #raise Exception('Unknown writing direction!')
+        raise Exception('Unknown writing direction: %d' % writing_direction)
 
     return a, b, c, d
 
@@ -597,7 +597,6 @@ def hocr_to_word_data(hocr_page, scaler):
                 else:
                     writing_direction = paragraph_writing_direction
 
-                # TODO: writing direction
                 word_data.append({'bbox': box, 'text': rawtext, 'fontsize':
                     x_fsize, 'writing_direction': writing_direction})
 
