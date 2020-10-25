@@ -256,7 +256,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 metadatadate=current_time,
                 modifydate=current_time)
 
-    to_pdf.setXmlMetadata(stream)
+        to_pdf.setXmlMetadata(stream)
 
 
 if __name__ == '__main__':
