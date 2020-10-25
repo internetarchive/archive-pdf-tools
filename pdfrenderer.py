@@ -2,20 +2,17 @@
 # at commit 2d6f38eebf9a14d9fbe65d785f0d7bd898ff46cb
 #
 # Please look at the code in there for documentation, etc.
-# TODO: Code is probably Apache Licensed as well
+# XXX: Code is probably Apache Licensed as well
 
 from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
 import datetime
 
-## BEGIN EXTRA DEFS
-# TODO: fix these
 WRITING_DIRECTION_UNSPECIFIED = 0
 WRITING_DIRECTION_LEFT_TO_RIGHT = 1
 WRITING_DIRECTION_RIGHT_TO_LEFT = 2
 WRITING_DIRECTION_TOP_TO_BOTTOM = 3
-## END EXTRA DEFS
 
 wdmap = {
     'ltr': WRITING_DIRECTION_LEFT_TO_RIGHT,
