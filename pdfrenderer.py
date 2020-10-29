@@ -75,6 +75,24 @@ class TessPDFRenderer(object):
         line_y2 = 0
 
         for paragraph in word_data:
+
+            # See if we want to skip this line (if it's just a space with a big
+            # bounding box, we don't want to include them, as they mess up text
+            # selection.
+            linetext = ''
+            for line in paragraph['lines']:
+                for word in line['words']:
+                    # XXX: We could also skip words if the word confidence is
+                    # particularly low.
+                    #if word['confidence'] < 75:
+                    #    print('Skipping word with low confidence.')
+                    #    continue
+                    for char in word['text']:
+                        linetext += char
+            if linetext.strip() == '':
+                continue
+
+
             # Use this instead of b'BT\n3 Tr' if you want to see the text
             #pdf_str += b'BT\n0 Tr'
             pdf_str += b'BT\n3 Tr'
