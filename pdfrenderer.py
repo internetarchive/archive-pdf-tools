@@ -9,15 +9,12 @@ import numpy as np
 import zlib
 import datetime
 
-WRITING_DIRECTION_UNSPECIFIED = 0
-WRITING_DIRECTION_LEFT_TO_RIGHT = 1
-WRITING_DIRECTION_RIGHT_TO_LEFT = 2
-WRITING_DIRECTION_TOP_TO_BOTTOM = 3
+# Lives at https://git.archive.org/merlijn/archive-hocr-tools
+from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
+        hocr_page_get_dimensions,
+        WRITING_DIRECTION_UNSPECIFIED, WRITING_DIRECTION_LEFT_TO_RIGHT,
+        WRITING_DIRECTION_RIGHT_TO_LEFT, WRITING_DIRECTION_TOP_TO_BOTTOM)
 
-wdmap = {
-    'ltr': WRITING_DIRECTION_LEFT_TO_RIGHT,
-    'rtl': WRITING_DIRECTION_RIGHT_TO_LEFT,
-}
 
 K_CHAR_WIDTH = 2
 K_MAX_BYTES_PER_CODEPOINTS = 20
@@ -521,92 +518,6 @@ def floatbytes(v, prec=8):
     return fmt_str.format(v).encode('ascii')
 
 
-# XXX: Perhaps move this parsing elsewhere
-from lxml import etree, html
-import re
-import gzip
-
-BBOX_REGEX = re.compile(r'bbox((\s+\d+){4})')
-BASELINE_REGEX = re.compile(r'baseline((\s+[\d\.\-]+){2})')
-X_SIZE_REGEX = re.compile(r'x_size((\s+[\d\.\-]+){1})')
-X_FSIZE_REGEX = re.compile(r'x_fsize((\s+[\d\.\-]+){1})')
-
-def hocr_page_iterator(hocrfile):
-    if hocrfile.endswith('.gz'):
-        fp = gzip.open(hocrfile)
-    else:
-        fp = open(hocrfile)
-
-    hocr = etree.parse(hocrfile, html.XHTMLParser())
-    hocr_pages = hocr.xpath("//*[@class='ocr_page']")
-    for hocr_page in hocr_pages:
-        pagebox = BBOX_REGEX.search(hocr_page.attrib['title']).group(1).split()
-        w, h = int(pagebox[2]), int(pagebox[3])
-
-        yield hocr_page, (w,h )
-
-def hocr_to_word_data(hocr_page, scaler):
-    paragraphs = []
-
-    for par in hocr_page.xpath('.//*[@class="ocr_par"]'):
-        paragraph_data = {'lines': []}
-
-        paragraph_writing_direction = WRITING_DIRECTION_UNSPECIFIED
-        if 'dir' in par.attrib:
-            paragraph_writing_direction = wdmap[par.attrib['dir']]
-
-        for line in par.getchildren():
-            line_data = {}
-
-            linebox = BBOX_REGEX.search(line.attrib['title']).group(1).split()
-            baseline = BASELINE_REGEX.search(line.attrib['title'])
-            if baseline is not None:
-                baseline = baseline.group(1).split()
-            else:
-                baseline = [0, 0]
-
-            linebox = [float(i) for i in linebox]
-            baseline = [float(i) for i in baseline]
-
-            line_data['bbox'] = linebox
-            line_data['baseline'] = baseline
-
-            word_data = []
-            for word in line.xpath('.//*[@class="ocrx_word"]'):
-                # XXX: if no ocrx_cinfo, then just read word.text
-                rawtext = ''
-                for char in word.xpath('.//*[@class="ocrx_cinfo"]'):
-                    rawtext += char.text
-
-                box = BBOX_REGEX.search(word.attrib['title']).group(1).split()
-                box = [float(i) for i in box]
-
-                f_sizeraw = X_FSIZE_REGEX.search(word.attrib['title'])
-                if f_sizeraw:
-                    x_fsize = float(f_sizeraw.group(1))
-                    x_fsize *= scaler
-                else:
-                    x_fsize = 0. # Will get fixed later on
-
-                writing_direction = WRITING_DIRECTION_UNSPECIFIED
-                if 'dir' in word.attrib:
-                    writing_direction = wdmap[word.attrib['dir']]
-                else:
-                    writing_direction = paragraph_writing_direction
-
-                word_data.append({'bbox': box, 'text': rawtext, 'fontsize':
-                    x_fsize, 'writing_direction': writing_direction})
-
-
-            line_data['words'] = word_data
-            #print('Line words:', word_data)
-            paragraph_data['lines'].append(line_data)
-
-        paragraphs.append(paragraph_data)
-
-    return paragraphs
-
-
 if __name__ == '__main__':
     # TODO improve
     import sys
@@ -622,11 +533,12 @@ if __name__ == '__main__':
     PPI = 72
 
     #idx = 0
-    for page, (width, height) in hocr_page_iterator(hocrfile):
+    for page in hocr_page_iterator(hocrfile):
+        width, height = hocr_page_get_dimensions(page)
         width /= scaler
         height /= scaler
         ppi = PPI * scaler
-        word_data = hocr_to_word_data(page, scaler)
+        word_data = hocr_page_to_word_data(page, scaler=scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi)
         #idx += 1
         #if idx > 2:
