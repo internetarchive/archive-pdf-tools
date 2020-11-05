@@ -52,7 +52,7 @@ KDU_EXPAND = 'kdu_expand'
 #KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
 
 
-def threshold_image(pil_image, rev=False):
+def threshold_image(pil_image, rev=False, otsu=False):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
     the text more readable. Tesseract uses Otsu thresholding, which in our
@@ -63,17 +63,21 @@ def threshold_image(pil_image, rev=False):
     """
     img = np.array(pil_image)
 
-    otsu = True
     if otsu:
-        binary_otsu = threshold_otsu(img)
+        try:
+            binary_otsu = threshold_otsu(img)
+        except ValueError:
+            binary_otsu = np.ndarray(img.shape)
+            binary_otsu[:] = 0
+
         if rev:
             binary_img = img > binary_otsu
         else:
             binary_img = img < binary_otsu
     else:
-        block_size = 21
-        binary_local = threshold_local(img, block_size, method='gaussian')
-        #binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
+        block_size = 9
+        #binary_local = threshold_local(img, block_size, method='gaussian')
+        binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
         if not rev:
             binary_img = img < binary_local
         else:
@@ -81,6 +85,12 @@ def threshold_image(pil_image, rev=False):
 
     return binary_img
 
+
+def threshold_image2(pil_image):
+    local = threshold_image(pil_image)
+    otsu = threshold_image(pil_image, otsu=True)
+
+    return local & otsu
 
 #def inverse_mask(mask):
 #    inverse_mask = np.copy(mask)
@@ -114,7 +124,85 @@ def create_mrc_components(image):
     return mask, np_bg, np_fg
 
 
-def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05,
+def create_mrc_hocr_components(image, hocr_word_data):
+    img = image
+    if image.mode != 'L':
+        img = image.convert('L')
+
+    image_mask = Image.new('1', image.size)
+    image_cont = Image.new(image.mode, image.size)
+
+    OTSU = False
+
+    if OTSU:
+        otsu_mask = Image.new('1', image.size)
+
+    for paragraphs in hocr_word_data:
+        for lines in paragraphs['lines']:
+            for word in lines['words']:
+                if not word['text'].strip():
+                    continue
+
+                wordimg = img.crop(word['bbox'])
+                wordimg_th = Image.fromarray(threshold_image2(wordimg)).convert('1')
+
+                if OTSU:
+                    wordimg_o = img.crop(word['bbox'])
+                    wordimg_th_o = Image.fromarray(threshold_image(wordimg_o, otsu=True)).convert('1')
+
+                # Make sure we're not greyscale
+                wordimg = image.crop(word['bbox'])
+
+                # TODO: Over elkaar heen pasten is een probleem (!!!) -
+                # mergen bij pasten?
+                intbox = [int(x) for x in word['bbox']]
+
+                # TODO: XXX: Let's make sure we do this with numpy arrays, and
+                # only copy the pixels that are in the wordimg_th (mask). That
+                # way there is no way we can paste over existing bounding boxes
+                # (I have seen this happen already!)
+
+                # TODO: Let's work on numpy arrays.
+                # And then only copy over pixels that are part of the threshold.
+                image_mask.paste(wordimg_th, intbox)
+
+                if OTSU:
+                    otsu_mask.paste(wordimg_th_o, intbox)
+
+                image_cont.paste(wordimg, intbox)
+                #image_cont.paste(wordimg_con, intbox)
+
+    # TODO: Massage image?
+
+    mask_arr = np.array(image_mask)
+    mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
+
+    if OTSU:
+        otsu_arr = np.array(otsu_mask)
+        otsu_inv = otsu_arr ^ np.ones(otsu_arr.shape, dtype=bool)
+
+
+    if OTSU:
+        image_arr = np.array(image)
+        image_arr[otsu_arr] = np.mean(image_arr)
+
+        image = Image.fromarray(image_arr)
+
+    w, h = image.size
+    image.thumbnail((w/2, h/2))
+    image_arr = np.array(image)
+
+    # Fill non relevant of foreground with black pixels for now.
+    # This is not ideal / perfect, but it should save some when encoding, and
+    # should work OK with black text.
+    foreground_arr = np.array(image_cont)
+    foreground_arr[mask_inv] = (0, 0, 0)
+    #foreground_arr[mask_arr] = 0
+
+    return mask_arr, image_arr, foreground_arr
+
+
+def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
                       tmp_dir=None):
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
@@ -147,7 +235,8 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05,
 
     subprocess.check_call([KDU_COMPRESS,
         '-i', bg_img_tiff, '-o', bg_img_jp2,
-        '-rate', str(bg_bitrate),
+        '-slope', str(bg_slope),
+        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
         ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(bg_img_tiff)
 
@@ -165,7 +254,8 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_bitrate=0.1, fg_bitrate=0.05,
     subprocess.check_call(['convert', mask_img_png, mask_img_png + '.pgm'])
     subprocess.check_call([KDU_COMPRESS,
         '-i', fg_img_tiff, '-o', fg_img_jp2,
-        '-rate', str(fg_bitrate),
+        '-slope', str(fg_slope),
+        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
          '-roi', mask_img_png + '.pgm,0.5',
         ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(mask_img_png + '.pgm')
