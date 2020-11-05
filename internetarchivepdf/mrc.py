@@ -196,7 +196,10 @@ def create_mrc_hocr_components(image, hocr_word_data):
     # This is not ideal / perfect, but it should save some when encoding, and
     # should work OK with black text.
     foreground_arr = np.array(image_cont)
-    foreground_arr[mask_inv] = (0, 0, 0)
+    if image.mode == 'RGB' or image.mode == 'RGBA':
+        foreground_arr[mask_inv] = (0, 0, 0)
+    else:
+        foreground_arr[mask_inv] = 0
     #foreground_arr[mask_arr] = 0
 
     return mask_arr, image_arr, foreground_arr
