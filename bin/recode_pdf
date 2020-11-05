@@ -82,7 +82,7 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
 
 
 def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
-        skip_pages=None, img_dir=None):
+        skip_pages=None, img_dir=None, jbig2=False):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -130,15 +130,14 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(Image.open(tiff_in),
                                                   hocr_word_data)
-        #mask, bg, fg = create_mrc_components(Image.open(tiff_in))
         remove(tiff_in)
 
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
                 bg_slope=bg_slope, fg_slope=fg_slope,
-                tmp_dir=TMP_DIR)
+                tmp_dir=TMP_DIR, jbig2=jbig2)
 
         if img_dir is not None:
-            shutil.copy(mask_f, join(img_dir, '%.6d_mask.png' % idx))
+            shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
             shutil.copy(bg_f, join(img_dir, '%.6d_bg.jp2' % idx))
             shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
 
@@ -335,6 +334,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
                               ' 2 is MRC (default is 2)', type=int)
+    parser.add_argument('--jbig2', default=False, help='Encode using jbig2',
+                        action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='Verbose output')
     parser.add_argument('--tmp-dir', default=None, type=str,
@@ -411,7 +412,8 @@ if __name__ == '__main__':
         insert_images_mrc(in_pdf, outdoc, hocr_file,
                           bg_slope=args.bg_slope,
                           fg_slope=args.fg_slope, skip_pages=skip_pages,
-                          img_dir=args.out_dir)
+                          img_dir=args.out_dir,
+                          jbig2=args.jbig2)
     else:
         insert_images(in_pdf, outdoc, mode=args.image_mode)
 

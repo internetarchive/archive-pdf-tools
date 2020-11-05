@@ -203,24 +203,24 @@ def create_mrc_hocr_components(image, hocr_word_data):
 
 
 def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
-                      tmp_dir=None):
+                      tmp_dir=None, jbig2=True):
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
     close(fd)
-    #fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2', dir=tmp_dir)
-    #close(fd)
+    if jbig2:
+        fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2', dir=tmp_dir)
+        close(fd)
 
     img = Image.fromarray(mask)
     img.save(mask_img_png, compress_level=0) # XXX: Check compress_level vs compress
 
-    #out = subprocess.check_output(['jbig2', mask_img_png])
-    ##out = subprocess.check_output(['jbig2', '--pdf', mask_img_png])
-    #fp= open(mask_img_jbig2, 'wb+')
-    #fp.write(out)
-    #fp.close()
-    ## TODO: re-add this
-    ##remove(mask_img_png)
+    if jbig2:
+        out = subprocess.check_output(['jbig2', mask_img_png])
+        #out = subprocess.check_output(['jbig2', '--pdf', mask_img_png])
+        fp= open(mask_img_jbig2, 'wb+')
+        fp.write(out)
+        fp.close()
 
     # Create background
     fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
@@ -261,13 +261,18 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     remove(mask_img_png + '.pgm')
     remove(fg_img_tiff)
 
+    if jbig2:
+        remove(mask_img_png)
+
 
     # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes their
     # JBIG2 support
     #print(mask_img_png, bg_img_jp2, fg_img_jp2)
-    return mask_img_png, bg_img_jp2, fg_img_jp2
     #print(mask_img_jbig2, bg_img_jp2, fg_img_jp2)
-    #return mask_img_jbig2, bg_img_jp2, fg_img_jp2
+    if jbig2:
+        return mask_img_jbig2, bg_img_jp2, fg_img_jp2
+    else:
+        return mask_img_png, bg_img_jp2, fg_img_jp2
 
 
 if __name__ == '__main__':
