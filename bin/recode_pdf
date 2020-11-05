@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+import pkg_resources
+
 import sys
 import os
 import subprocess
@@ -11,12 +14,12 @@ import shutil
 from PIL import Image
 import fitz
 
-from mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
+from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
         encode_mrc_images
-from pdfrenderer import TessPDFRenderer
+from internetarchivepdf.pdfrenderer import TessPDFRenderer
+from internetarchivepdf.scandata import scandata_xml_get_skip_pages
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions)
-from scandata import scandata_xml_get_skip_pages
 
 
 VERSION = '0.0.1'
@@ -187,7 +190,7 @@ def insert_images(from_pdf, to_pdf, mode):
 
 
 # XXX: tmp.icc - pick proper one and ship it with the tool, or embed it
-def write_pdfa(to_pdf, iccpath='tmp.icc'):
+def write_pdfa(to_pdf):
     srgbxref = to_pdf._getNewXref()
     to_pdf.updateObject(srgbxref, """
 <<
@@ -195,7 +198,8 @@ def write_pdfa(to_pdf, iccpath='tmp.icc'):
       /N 3
 >>
 """)
-    to_pdf.updateStream(srgbxref, open(iccpath, 'rb').read(), new=True)
+    icc = pkg_resources.resource_string('internetarchivepdf', "data/tmp.icc")
+    to_pdf.updateStream(srgbxref, icc, new=True)
 
     intentxref = to_pdf._getNewXref()
     to_pdf.updateObject(intentxref, """

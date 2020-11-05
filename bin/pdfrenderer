@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+import sys
+
+from internetarchivepdf.pdfrenderer import TessPDFRenderer
+from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
+        hocr_page_get_dimensions)
+
+if __name__ == '__main__':
+    # TODO improve
+    import sys
+    hocrfile = sys.argv[1]
+    outfile = sys.argv[2]
+
+    render = TessPDFRenderer()
+
+    render.BeginDocumentHandler()
+
+    scaler = 1
+
+    PPI = 72
+
+    #idx = 0
+    for page in hocr_page_iterator(hocrfile):
+        width, height = hocr_page_get_dimensions(page)
+        width /= scaler
+        height /= scaler
+        ppi = PPI * scaler
+        word_data = hocr_page_to_word_data(page, scaler=scaler)
+        render.AddImageHandler(word_data, width, height, ppi=ppi)
+        #idx += 1
+        #if idx > 20:
+        #    break
+
+    render.EndDocumentHandler(title='Just a title')
+
+    fp = open(outfile, 'wb+')
+    fp.write(render._data)
+    fp.close()
+

@@ -4,6 +4,8 @@
 # Please look at the code in there for documentation, etc.
 # XXX: Code is probably Apache Licensed as well
 
+import pkg_resources
+
 from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
@@ -196,7 +198,7 @@ class TessPDFRenderer(object):
 
         return pdf_str
 
-    def BeginDocumentHandler(self, fontpath='pdf.ttf'):
+    def BeginDocumentHandler(self):
         self.AppendPDFObject(b'%PDF-1.5\n%\xDE\xAD\xBE\xEB\n');
         self.AppendPDFObject(b'1 0 obj\n'
                              b'<<\n'
@@ -302,7 +304,7 @@ class TessPDFRenderer(object):
           b'endobj\n')
         self.AppendPDFObject(stream)
 
-        fontstream = open(fontpath, 'rb').read()
+        fontstream = pkg_resources.resource_string('internetarchivepdf', "data/tesseract.ttf")
         stream = (
           b'8 0 obj\n'
           b'<<\n'
@@ -534,37 +536,3 @@ def CodepointToUtf16be(code):
 def floatbytes(v, prec=8):
     fmt_str = '{:.%df}' % prec
     return fmt_str.format(v).encode('ascii')
-
-
-if __name__ == '__main__':
-    # TODO improve
-    import sys
-    hocrfile = sys.argv[1]
-    outfile = sys.argv[2]
-
-    render = TessPDFRenderer()
-
-    render.BeginDocumentHandler()
-
-    scaler = 1
-
-    PPI = 72
-
-    #idx = 0
-    for page in hocr_page_iterator(hocrfile):
-        width, height = hocr_page_get_dimensions(page)
-        width /= scaler
-        height /= scaler
-        ppi = PPI * scaler
-        word_data = hocr_page_to_word_data(page, scaler=scaler)
-        render.AddImageHandler(word_data, width, height, ppi=ppi)
-        #idx += 1
-        #if idx > 2:
-        #    break
-
-    render.EndDocumentHandler(title='Just a title')
-
-    fp = open(outfile, 'wb+')
-    fp.write(render._data)
-    fp.close()
-
