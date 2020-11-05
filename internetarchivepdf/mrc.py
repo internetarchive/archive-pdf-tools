@@ -188,8 +188,8 @@ def create_mrc_hocr_components(image, hocr_word_data):
 
         image = Image.fromarray(image_arr)
 
-    w, h = image.size
-    image.thumbnail((w/2, h/2))
+    #w, h = image.size
+    #image.thumbnail((w/2, h/2))
     image_arr = np.array(image)
 
     # Fill non relevant of foreground with black pixels for now.
