@@ -10,6 +10,7 @@ from datetime import datetime
 from tempfile import mkstemp
 from os.path import join
 import shutil
+import json
 
 from PIL import Image
 import fitz
@@ -41,13 +42,17 @@ IMAGE_MODE_PIXMAP = 1
 IMAGE_MODE_MRC = 2
 
 
-def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
+def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None,
+                             reporter=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     render = TessPDFRenderer()
     render.BeginDocumentHandler()
 
     skipped_pages = 0
+
+    last_time = time()
+    reporting_page_count = 0
 
     for idx, hocr_page in enumerate(hocr_iter):
         w, h = hocr_page_get_dimensions(hocr_page)
@@ -68,11 +73,19 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
 
         word_data = hocr_page_to_word_data(hocr_page, scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi)
+
+        reporting_page_count += 1
+
         if STOP is not None and idx >= STOP:
             break
-        if REPORT_EVERY is not None and idx % REPORT_EVERY == 0:
-            print('Generated %d PDF text pages.' % idx)
-            sys.stdout.flush()
+
+    if reporter and reporting_page_count != 0:
+        current_time = time()
+        ms = int(((current_time - last_time) / reporting_page_count) * 1000)
+
+        data = json.dumps({'compress_pages': {'count': reporting_page_count,
+                                              'time-per': ms}})
+        subprocess.check_output(reporter, input=data.encode('utf-8'))
 
     render.EndDocumentHandler()
 
@@ -82,10 +95,13 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None):
 
 
 def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
-        skip_pages=None, img_dir=None, jbig2=False):
+        skip_pages=None, img_dir=None, jbig2=False, reporter=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
+
+    last_time = time()
+    reporting_page_count = 0
 
     #for idx, page in enumerate(to_pdf):
     for idx, hocr_page in enumerate(hocr_iter):
@@ -96,9 +112,6 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
             continue
 
         idx = idx - skipped_pages
-
-        if STOP is not None and idx >= STOP:
-            break
 
         page = to_pdf[idx]
 
@@ -156,9 +169,36 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
         remove(bg_f)
         remove(fg_f)
 
-        if REPORT_EVERY is not None and idx % REPORT_EVERY == 0:
+        reporting_page_count += 1
+
+        if STOP is not None and idx >= STOP:
+            break
+
+        if REPORT_EVERY is not None and reporting_page_count % REPORT_EVERY == 0:
             print('Processed %d PDF pages.' % idx)
             sys.stdout.flush()
+
+            if reporter:
+                current_time = time()
+                ms = int(((current_time - last_time) / reporting_page_count) * 1000)
+
+                data = json.dumps({'compress_pages': {'count': reporting_page_count,
+                                                 'time-per': ms}})
+                subprocess.check_output(reporter, input=data.encode('utf-8'))
+
+                # Reset chunk timer
+                last_time = time()
+                # Reset chunk counter
+                reporting_page_count = 0
+
+
+    if reporter and reporting_page_count != 0:
+        current_time = time()
+        ms = int(((current_time - last_time) / reporting_page_count) * 1000)
+
+        data = json.dumps({'text_pages': {'count': reporting_page_count,
+                                         'time-per': ms}})
+        subprocess.check_output(reporter, input=data.encode('utf-8'))
 
 
 def insert_images(from_pdf, to_pdf, mode):
@@ -331,6 +371,8 @@ if __name__ == '__main__':
                         help='Output file to write recoded PDF to.')
     parser.add_argument('-O', '--out-dir', type=str, default=None,
                         help='Output directory to (also) write images to.')
+    parser.add_argument('-R', '--reporter', type=str, default=None,
+                        help='Program to launch when reporting progress.')
     parser.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
                               ' 2 is MRC (default is 2)', type=int)
@@ -382,6 +424,8 @@ if __name__ == '__main__':
         STOP -= 1
     TMP_DIR = args.tmp_dir
 
+    reporter = args.reporter.split(' ') if args.reporter else None
+
     start_time = time()
 
     # Figure out if we have scandata, and figure out if we want to skip pages
@@ -398,7 +442,8 @@ if __name__ == '__main__':
         print('Creating text only PDF')
 
     # 1. Create text-only PDF from hOCR first, but honour page sizes of in_pdf
-    create_tess_textonly_pdf(in_pdf, hocr_file, tess_tmp_path, skip_pages=skip_pages)
+    create_tess_textonly_pdf(in_pdf, hocr_file, tess_tmp_path,
+            skip_pages=skip_pages, reporter=reporter)
 
     if args.verbose:
         print('Inserting (and compressing) images')
@@ -413,7 +458,8 @@ if __name__ == '__main__':
                           bg_slope=args.bg_slope,
                           fg_slope=args.fg_slope, skip_pages=skip_pages,
                           img_dir=args.out_dir,
-                          jbig2=args.jbig2)
+                          jbig2=args.jbig2,
+                          reporter=reporter)
     else:
         insert_images(in_pdf, outdoc, mode=args.image_mode)
 
