@@ -237,6 +237,7 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     bg_img.save(bg_img_tiff)
 
     subprocess.check_call([KDU_COMPRESS,
+        '-num_threads', '0',
         '-i', bg_img_tiff, '-o', bg_img_jp2,
         '-slope', str(bg_slope),
         'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
@@ -256,6 +257,7 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
 
     subprocess.check_call(['convert', mask_img_png, mask_img_png + '.pgm'])
     subprocess.check_call([KDU_COMPRESS,
+        '-num_threads', '0',
         '-i', fg_img_tiff, '-o', fg_img_jp2,
         '-slope', str(fg_slope),
         'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
