@@ -83,7 +83,7 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None,
         current_time = time()
         ms = int(((current_time - last_time) / reporting_page_count) * 1000)
 
-        data = json.dumps({'compress_pages': {'count': reporting_page_count,
+        data = json.dumps({'text_pages': {'count': reporting_page_count,
                                               'time-per': ms}})
         subprocess.check_output(reporter, input=data.encode('utf-8'))
 
