@@ -306,7 +306,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
               <xmp:CreateDate>{createdate}</xmp:CreateDate>
               <xmp:MetadataDate>{metadatadate}</xmp:MetadataDate>
               <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
-              <xmp:CreatorTool>{PRODUCER}</xmp:CreatorTool>
+              <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
             </rdf:Description>
             <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <dc:title>
@@ -336,6 +336,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 # not provided
                 title=extra_metadata.get('title', 'No title provided'),
                 creator=extra_metadata.get('creator', 'No creator provided'),
+                creator=extra_metadata.get('creatortool', 'No creator tool provided'),
                 # Empty language field means unknown language
                 language=extra_metadata.get('language', ''),
                 createdate=current_time,
@@ -398,6 +399,8 @@ if __name__ == '__main__':
                         help='Language of PDF document, see RFC 3066')
     parser.add_argument('--metadata-subject', type=str, default=None,
                         help='Subjects')
+    parser.add_argument('--metadata-creatortool', type=str, default=None,
+                        help='Creator tool')
 
 
     args = parser.parse_args()
@@ -470,7 +473,9 @@ if __name__ == '__main__':
     if args.metadata_language:
         extra_metadata['language'] = args.metadata_language
     if args.metadata_subject:
-        extra_metadata['subject'] = args.metadata_language
+        extra_metadata['subject'] = args.metadata_subject
+    if args.metadata_creatortool:
+        extra_metadata['creatortool'] = args.metadata_creatortool
     write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
 
     # 5. Save
