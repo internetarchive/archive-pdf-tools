@@ -24,12 +24,12 @@ from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
 
 
 VERSION = '0.0.1'
-# XXX: More stable URL?
-SOFTWARE = 'Internet Archive PDF recoder - https://git.archive.org/merlijn/archive-pdf-tools'
 
-# TODO:
-# - Store arguments passed to this program in PDF metadata (compression
-#   settings, etc)
+# XXX: More stable URL?
+SOFTWARE_URL = 'https://git.archive.org/merlijn/archive-pdf-tools'
+PRODUCER = 'Internet Archive PDF creator and recoder %s; %s; written by '\
+           'Merlijn B. W. Wajer. Powered by Tesseract, mupdf and '\
+           'Python (pymupdf/skimage).' % (VERSION, SOFTWARE_URL)
 
 
 STOP = None
@@ -63,6 +63,9 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None,
             skipped_pages += 1
             continue
 
+        if STOP is not None and (idx - skipped_pages) >= STOP:
+            break
+
         page = in_pdf[idx - skipped_pages]
 
         width = page.rect.width
@@ -76,8 +79,6 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None,
 
         reporting_page_count += 1
 
-        if STOP is not None and idx >= STOP:
-            break
 
     if reporter and reporting_page_count != 0:
         current_time = time()
@@ -112,6 +113,9 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
             continue
 
         idx = idx - skipped_pages
+
+        if STOP is not None and idx >= STOP:
+            break
 
         page = to_pdf[idx]
 
@@ -170,9 +174,6 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
         remove(fg_f)
 
         reporting_page_count += 1
-
-        if STOP is not None and idx >= STOP:
-            break
 
         if REPORT_EVERY is not None and reporting_page_count % REPORT_EVERY == 0:
             print('Processed %d PDF pages.' % idx)
@@ -260,48 +261,41 @@ def write_pdfa(to_pdf):
 
 
 def write_metadata(from_pdf, to_pdf, extra_metadata):
-    # TODO: pass more metadata as args
-    doc_md = in_pdf.metadata
+    doc_md = from_pdf.metadata if from_pdf is not None else {}
 
-    #Metadata: {'format': 'PDF 1.5', 'title': None, 'author': None, 'subject': None, 'keywords': None, 'creator': None, 'producer': None, 'creationDate': None, 'modDate': None, 'encryption': None}
-
-    # TODO: Set other metadata keys (as above):
-    # - keywords
-
-    # TODO: Make sure to link back to archive.org item somehow? (optional extra
-    # metadata args)
-
-    doc_md['producer'] = '%s (version %s)' % (SOFTWARE, VERSION)
+    doc_md['producer'] = PRODUCER
 
     if 'url' in extra_metadata:
         doc_md['keywords'] = extra_metadata['url']
     if 'title' in extra_metadata:
         doc_md['title'] = extra_metadata['title']
     if 'creator' in extra_metadata:
-        doc_md['title'] = extra_metadata['creator']
+        doc_md['creator'] = extra_metadata['creator']
+    if 'subject' in extra_metadata:
+        doc_md['subject'] = extra_metadata['subject']
 
+    current_time = 'D:' + datetime.utcnow().isoformat(timespec='seconds') + '+00\':00\''
+    if from_pdf is not None:
+        doc_md['creationDate'] = from_pdf.metadata['creationDate']
+    else:
+        doc_md['creationDate'] = current_time
+    doc_md['modDate'] = current_time
+
+    # Set PDF basic metadata
     to_pdf.setMetadata(doc_md)
 
-    xml_xref = from_pdf._getXmlMetadataXref()
-    if xml_xref > 0:
-        # XXX: If there is a xml metadata stream we just copy it instead of
-        # making our own, but we might want to raise warnings for that.
-        raise Exception('Decide what to do with embedded XML')
+    have_xmlmeta = (from_pdf is not None) and (from_pdf._getXmlMetadataXref() > 0)
+    if have_xmlmeta:
+        xml_xref = from_pdf._getXmlMetadataXref()
+
+        # Just copy the existing XML, perform no validity checks
         xml_bytes = from_pdf.xrefStream(xml_xref)
         to_pdf.setXmlMetadata(xml_bytes.decode('utf-8'))
     else:
-
         # TODO: Update this and make sure it's all nice and correct
         # TODO: Write/add:
-        # - CreatorTool
-        # - CreateDate
-        # - MetadataDate
-        # - ModifyDate
-        # - Title
-        # - Creator
         # - Language bag
         # - *link back* to archive.org item
-
 
         current_time = datetime.utcnow().isoformat(timespec='seconds') + '+00:00'
 
@@ -312,7 +306,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
               <xmp:CreateDate>{createdate}</xmp:CreateDate>
               <xmp:MetadataDate>{metadatadate}</xmp:MetadataDate>
               <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
-              <xmp:CreatorTool>Internet Archive</xmp:CreatorTool>
+              <xmp:CreatorTool>{PRODUCER}</xmp:CreatorTool>
             </rdf:Description>
             <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <dc:title>
@@ -342,7 +336,8 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 # not provided
                 title=extra_metadata.get('title', 'No title provided'),
                 creator=extra_metadata.get('creator', 'No creator provided'),
-                language=extra_metadata.get('language', 'en'),
+                # Empty language field means unknown language
+                language=extra_metadata.get('language', ''),
                 createdate=current_time,
                 metadatadate=current_time,
                 modifydate=current_time)
@@ -400,11 +395,9 @@ if __name__ == '__main__':
     parser.add_argument('--metadata-creator', type=str, default=None,
                         help='Creator of PDF document')
     parser.add_argument('--metadata-language', type=str, default=None,
-                        help='Language of PDF document (in ISO 639-1?)')
-
-    # TODO: Lots of options for various metadata parts to write:
-    # --metadata-language
-    # --metadata-ETC
+                        help='Language of PDF document, see RFC 3066')
+    parser.add_argument('--metadata-subject', type=str, default=None,
+                        help='Subjects')
 
 
     args = parser.parse_args()
@@ -476,6 +469,8 @@ if __name__ == '__main__':
         extra_metadata['creator'] = args.metadata_creator
     if args.metadata_language:
         extra_metadata['language'] = args.metadata_language
+    if args.metadata_subject:
+        extra_metadata['subject'] = args.metadata_language
     write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
 
     # 5. Save
