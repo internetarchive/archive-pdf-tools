@@ -6,8 +6,9 @@ from glob import glob
 from tempfile import mkstemp
 import subprocess
 
-from PIL import Image
-from skimage.filters import threshold_local, threshold_otsu
+from PIL import Image, ImageEnhance
+from skimage.filters import threshold_local, threshold_otsu, threshold_sauvola
+from scipy import ndimage
 import numpy as np
 
 import fitz
@@ -86,17 +87,60 @@ def threshold_image(pil_image, rev=False, otsu=False):
     return binary_img
 
 
+
 def threshold_image2(pil_image):
     local = threshold_image(pil_image)
     otsu = threshold_image(pil_image, otsu=True)
 
     return local & otsu
 
-#def inverse_mask(mask):
-#    inverse_mask = np.copy(mask)
-#    inverse_mas[mask == True] = False
-#    inverse_mas[mask == False] = True
-#
+
+def threshold_image3(pil_image, rev=False):
+    img = np.array(pil_image)
+
+    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.6)
+    if rev:
+        binary_img = img > thres_sauvola
+    else:
+        binary_img = img < thres_sauvola
+
+    return binary_img
+
+
+# TODO: Rename, can be either foreground or background
+def special_foreground(mask, fg, sigma=5, mode=None):
+    maskf = np.array(mask, dtype=np.float)
+
+    if mode == 'RGB' or mode == 'RGBA':
+        in_r = fg[:, :, 0] * maskf
+        in_g = fg[:, :, 1] * maskf
+        in_b = fg[:, :, 2] * maskf
+        filter_r = ndimage.filters.gaussian_filter(in_r, sigma = sigma)
+        filter_g = ndimage.filters.gaussian_filter(in_g, sigma = sigma)
+        filter_b = ndimage.filters.gaussian_filter(in_b, sigma = sigma)
+    else:
+        fgf = np.copy(fg)
+        fgf = np.array(fgf, dtype=np.float)
+        filter = ndimage.filters.gaussian_filter(fgf * maskf, sigma = sigma)
+
+    weights = ndimage.filters.gaussian_filter(maskf, sigma = sigma)
+
+    if mode == 'RGB' or mode == 'RGBA':
+        filter_r /= weights + 0.00001
+        filter_g /= weights + 0.00001
+        filter_b /= weights + 0.00001
+
+        newfg = np.copy(fg)
+        newfg[:, :, 0] = filter_r
+        newfg[:, :, 1] = filter_g
+        newfg[:, :, 2] = filter_b
+    else:
+        filter /= weights + 0.00001
+        newfg = np.array(filter, dtype=np.uint8)
+
+    return newfg
+
+
 
 def create_mrc_components(image):
     img = image
@@ -130,12 +174,9 @@ def create_mrc_hocr_components(image, hocr_word_data):
         img = image.convert('L')
 
     image_mask = Image.new('1', image.size)
-    image_cont = Image.new(image.mode, image.size)
+    mask_arr = np.array(image_mask)
 
-    OTSU = False
-
-    if OTSU:
-        otsu_mask = Image.new('1', image.size)
+    MIX_THRESHOLD = True
 
     for paragraphs in hocr_word_data:
         for lines in paragraphs['lines']:
@@ -143,64 +184,43 @@ def create_mrc_hocr_components(image, hocr_word_data):
                 if not word['text'].strip():
                     continue
 
+                top, left, bottom, right = [int(x) for x in word['bbox']]
+
                 wordimg = img.crop(word['bbox'])
-                wordimg_th = Image.fromarray(threshold_image2(wordimg)).convert('1')
+                thres = threshold_image2(wordimg)
+                mask_arr[left:right, top:bottom] = thres
 
-                if OTSU:
-                    wordimg_o = img.crop(word['bbox'])
-                    wordimg_th_o = Image.fromarray(threshold_image(wordimg_o, otsu=True)).convert('1')
+                # TODO: Set thres values in array_mask
 
-                # Make sure we're not greyscale
-                wordimg = image.crop(word['bbox'])
-
-                # TODO: Over elkaar heen pasten is een probleem (!!!) -
-                # mergen bij pasten?
                 intbox = [int(x) for x in word['bbox']]
 
-                # TODO: XXX: Let's make sure we do this with numpy arrays, and
-                # only copy the pixels that are in the wordimg_th (mask). That
-                # way there is no way we can paste over existing bounding boxes
-                # (I have seen this happen already!)
-
-                # TODO: Let's work on numpy arrays.
-                # And then only copy over pixels that are part of the threshold.
-                image_mask.paste(wordimg_th, intbox)
-
-                if OTSU:
-                    otsu_mask.paste(wordimg_th_o, intbox)
-
-                image_cont.paste(wordimg, intbox)
-                #image_cont.paste(wordimg_con, intbox)
-
-    # TODO: Massage image?
-
-    mask_arr = np.array(image_mask)
-    mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
-
-    if OTSU:
-        otsu_arr = np.array(otsu_mask)
-        otsu_inv = otsu_arr ^ np.ones(otsu_arr.shape, dtype=bool)
-
-
-    if OTSU:
-        image_arr = np.array(image)
-        image_arr[otsu_arr] = np.mean(image_arr)
-
-        image = Image.fromarray(image_arr)
-
-    #w, h = image.size
-    #image.thumbnail((w/2, h/2))
     image_arr = np.array(image)
 
-    # Fill non relevant of foreground with black pixels for now.
-    # This is not ideal / perfect, but it should save some when encoding, and
-    # should work OK with black text.
-    foreground_arr = np.array(image_cont)
-    if image.mode == 'RGB' or image.mode == 'RGBA':
-        foreground_arr[mask_inv] = (0, 0, 0)
-    else:
-        foreground_arr[mask_inv] = 0
-    #foreground_arr[mask_arr] = 0
+    if MIX_THRESHOLD:
+        thres_arr = threshold_image3(img)
+        thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
+
+        mask_arr |= thres_arr
+
+    mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
+
+    foreground_arr = special_foreground(mask_arr, image_arr, sigma=6,
+            mode=image.mode)
+
+    # TODO: Clean this up
+    mask_arr_f = np.array(mask_arr, dtype=np.float)
+    mask_blur = ndimage.filters.gaussian_filter(mask_arr_f, sigma=1)
+    mask_blur[mask_blur > 0.00001] = 1.
+    mask_blurb = mask_blur > 0.0001
+    mask_inv_blur = mask_blurb ^ np.ones(mask_blurb.shape, dtype=bool)
+
+    image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
+                                   mode=image.mode)
+
+    image2 = Image.fromarray(image_arr)
+    w, h = image2.size
+    image2.thumbnail((w/3, h/3))
+    image_arr = np.array(image2)
 
     return mask_arr, image_arr, foreground_arr
 
