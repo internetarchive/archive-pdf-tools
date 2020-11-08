@@ -58,7 +58,8 @@ def threshold_image(pil_image, rev=False, otsu=False):
     else:
         block_size = 9
         #binary_local = threshold_local(img, block_size, method='gaussian')
-        binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
+        #binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
+        binary_local = threshold_local(img, block_size, method='gaussian')
         if not rev:
             binary_img = img < binary_local
         else:
@@ -119,6 +120,8 @@ def special_foreground(mask, fg, sigma=5, mode=None):
         filter /= weights + 0.00001
         newfg = np.array(filter, dtype=np.uint8)
 
+    newfg[mask] = fg[mask]
+
     return newfg
 
 
@@ -149,7 +152,7 @@ def create_mrc_components(image):
     return mask, np_bg, np_fg
 
 
-def create_mrc_hocr_components(image, hocr_word_data):
+def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
     img = image
     if image.mode != 'L':
         img = image.convert('L')
@@ -188,20 +191,40 @@ def create_mrc_hocr_components(image, hocr_word_data):
     foreground_arr = special_foreground(mask_arr, image_arr, sigma=6,
             mode=image.mode)
 
-    # TODO: Clean this up
+    ## TODO: Clean this up
     mask_arr_f = np.array(mask_arr, dtype=np.float)
     mask_blur = ndimage.filters.gaussian_filter(mask_arr_f, sigma=1)
+    #mask_blur = ndimage.filters.gaussian_filter(mask_arr_f, sigma=1)
     mask_blur[mask_blur > 0.00001] = 1.
     mask_blurb = mask_blur > 0.0001
     mask_inv_blur = mask_blurb ^ np.ones(mask_blurb.shape, dtype=bool)
-
-    image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
+    #image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
+    #image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
+    image_arr = special_foreground(mask_inv, image_arr, sigma=10,
                                    mode=image.mode)
 
-    image2 = Image.fromarray(image_arr)
-    w, h = image2.size
-    image2.thumbnail((w/3, h/3))
-    image_arr = np.array(image2)
+    diff_mask = mask_blurb & ~mask_arr
+    diff_mask_inv = diff_mask ^ np.ones(diff_mask.shape, dtype=bool)
+    bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode,
+            sigma=30)
+    image_arr = bg_blur
+
+    ## image_arr = background
+    #image_arr = special_foreground(mask_inv, image_arr, sigma=10,
+    #                               mode=image.mode)
+
+    # TODO: Turn this into a command line argument:
+    if bg_downsample is not None:
+        image2 = Image.fromarray(image_arr)
+        w, h = image2.size
+        image2.thumbnail((w/bg_downsample, h/bg_downsample))
+        image_arr = np.array(image2)
+
+    fg = Image.fromarray(foreground_arr)
+    en = ImageEnhance.Brightness(fg)
+    tmp = en.enhance(0.5)
+    en = ImageEnhance.Contrast(tmp)
+    foreground_arr = np.array(en.enhance(2.0))
 
     return mask_arr, image_arr, foreground_arr
 

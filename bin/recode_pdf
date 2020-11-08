@@ -96,7 +96,8 @@ def create_tess_textonly_pdf(in_pdf, hocr_file, save_path, skip_pages=None,
 
 
 def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
-        skip_pages=None, img_dir=None, jbig2=False, reporter=None):
+        skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
+        reporter=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -146,7 +147,8 @@ def insert_images_mrc(from_pdf, to_pdf, hocr_file, bg_slope=None, fg_slope=None,
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(Image.open(tiff_in),
-                                                  hocr_word_data)
+                                                  hocr_word_data,
+                                                  bg_downsample=bg_downsample)
         remove(tiff_in)
 
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
@@ -383,12 +385,15 @@ if __name__ == '__main__':
                              '(default is no reporting)')
     parser.add_argument('-t', '--stop-after', default=None, type=int,
                         help='Stop after N pages (default is no stop)')
-    parser.add_argument('--bg-slope', default=0.1, type=float,
-                        help='Bits per pixels for background layer.'
+    parser.add_argument('--bg-slope', default=47000, type=int,
+                        help='Slope for background layer.'
                              ' Default is 0.1')
-    parser.add_argument('--fg-slope', default=0.05, type=float,
-                        help='Bits per pixels for foreground layer.'
+    parser.add_argument('--fg-slope', default=49000, type=int,
+                        help='Slope for foreground layer.'
                              ' Default is 0.05')
+    parser.add_argument('--bg-downsample', default=None, type=int,
+                        help='Downsample background by factor.'
+                             ' Default is no scaling')
     parser.add_argument('--metadata-url', type=str, default=None,
                         help='URL describing document, if any')
     parser.add_argument('--metadata-title', type=str, default=None,
@@ -455,6 +460,7 @@ if __name__ == '__main__':
                           fg_slope=args.fg_slope, skip_pages=skip_pages,
                           img_dir=args.out_dir,
                           jbig2=args.jbig2,
+                          bg_downsample=args.bg_downsample,
                           reporter=reporter)
     else:
         insert_images(in_pdf, outdoc, mode=args.image_mode)
