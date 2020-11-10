@@ -567,7 +567,7 @@ if __name__ == '__main__':
 
     newsize = os.path.getsize(args.out_pdf)
     if VERBOSE:
-        print('Compression ratio: %f%%' % (oldsize / newsize))
+        print('Compression ratio: %f' % (oldsize / newsize))
 
     # 5. Remove leftover files
     remove(tess_tmp_path)
