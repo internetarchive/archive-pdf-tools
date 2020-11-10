@@ -8,6 +8,7 @@ import subprocess
 
 from PIL import Image, ImageEnhance
 from skimage.filters import threshold_local, threshold_otsu, threshold_sauvola
+from skimage.restoration import denoise_tv_bregman
 from scipy import ndimage
 import numpy as np
 
@@ -33,7 +34,7 @@ KDU_EXPAND = 'kdu_expand'
 #KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
 
 
-def threshold_image(pil_image, rev=False, otsu=False):
+def threshold_image(pil_image, rev=False, otsu=False, block_size=9):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
     the text more readable. Tesseract uses Otsu thresholding, which in our
@@ -56,7 +57,6 @@ def threshold_image(pil_image, rev=False, otsu=False):
         else:
             binary_img = img < binary_otsu
     else:
-        block_size = 9
         #binary_local = threshold_local(img, block_size, method='gaussian')
         #binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
         binary_local = threshold_local(img, block_size, method='gaussian')
@@ -80,7 +80,7 @@ def threshold_image3(pil_image, rev=False):
     img = np.array(pil_image)
 
     window_size = 101
-    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.6)
+    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.4)
     if rev:
         binary_img = img > thres_sauvola
     else:
@@ -88,6 +88,17 @@ def threshold_image3(pil_image, rev=False):
 
     return binary_img
 
+
+def denoise_bregman(binary_img):
+    thresf = np.array(binary_img, dtype=np.float)
+    #denoise = denoise_tv_bregman(thresf, weight=0.25)
+    denoise = denoise_tv_bregman(thresf, weight=1.)
+
+    #denoise = denoise > 0.6
+    denoise = denoise > 0.4  # XXX: 0.4?
+    denoise = np.array(denoise, dtype=np.bool)
+
+    return denoise
 
 # TODO: Rename, can be either foreground or background
 def special_foreground(mask, fg, sigma=5, mode=None):
@@ -182,6 +193,9 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
     if MIX_THRESHOLD:
         thres_arr = threshold_image3(img)
+
+        thres_arr = denoise_bregman(thres_arr)
+
         thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
 
         mask_arr |= thres_arr
@@ -203,11 +217,12 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
     image_arr = special_foreground(mask_inv, image_arr, sigma=10,
                                    mode=image.mode)
 
-    diff_mask = mask_blurb & ~mask_arr
-    diff_mask_inv = diff_mask ^ np.ones(diff_mask.shape, dtype=bool)
-    bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode,
-            sigma=30)
-    image_arr = bg_blur
+    #diff_mask = mask_blurb & ~mask_arr
+    #diff_mask_inv = diff_mask ^ np.ones(diff_mask.shape, dtype=bool)
+    #bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=10)
+    ##bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=30)
+    ##bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=5)
+    #image_arr = bg_blur
 
     ## image_arr = background
     #image_arr = special_foreground(mask_inv, image_arr, sigma=10,
