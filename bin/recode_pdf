@@ -4,6 +4,7 @@ import pkg_resources
 import sys
 import os
 import subprocess
+import zipfile
 from os import remove
 from time import time
 from datetime import datetime
@@ -14,6 +15,7 @@ import json
 from glob import glob
 
 from PIL import Image
+from PIL import Jpeg2KImagePlugin
 import fitz
 
 from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
@@ -44,7 +46,7 @@ IMAGE_MODE_MRC = 2
 
 
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
-        image_files=None, dpi=None, skip_pages=None, reporter=None):
+        image_files=None, image_zip=None, dpi=None, skip_pages=None, reporter=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     render = TessPDFRenderer()
@@ -74,11 +76,17 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
 
             scaler = page.rect.width / w
             ppi = 72 / scaler
-        else:
+        elif image_files is not None:
             # Do not subtract skipped pages here
             imgfile = image_files[idx]
-            img = Image.open(imgfile)
-            imwidth, imheight = img.size
+
+            if image_zip is not None:
+                ci = image_zip.open(imgfile)
+                size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(ci)
+                imwidth, imheight = size
+            else:
+                img = Image.open(imgfile)
+                imwidth, imheight = img.size
 
             page_width = imwidth / (dpi / 72)
 
@@ -112,6 +120,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
 
 
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
+        image_zip=None,
         dpi=None, bg_slope=None, fg_slope=None,
         skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
         reporter=None):
@@ -169,9 +178,18 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         else:
             # Do not subtract skipped pages here
             imgfile = image_files[idx+skipped_pages]
+
             # TODO: We could use kdu_expand here to expand a JPEG2000 if it's
-            # faster to decode than using OpenJPEG2000.
-            image = Image.open(imgfile)
+            # faster to decode than using OpenJPEG2000, but that might be tricky
+            # on zip files
+            if image_zip is not None:
+                ci = image_zip.open(imgfile)
+                image = Image.open(ci)
+                t=time()
+                image.load()
+                print('Time taken to load jpeg2000:', time()-t)
+            else:
+                image = Image.open(imgfile)
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(image,
@@ -388,6 +406,8 @@ if __name__ == '__main__':
                         help='Input PDF (containing images) to recode')
     parser.add_argument('-I', '--from-imagestack', type=str, default=None,
                         help='Glob pattern for image stack')
+    parser.add_argument('-Z', '--from-imagestackfile', type=str, default=None,
+                        help='Path to for image stack zip/tar')
     parser.add_argument('-D', '--dpi', type=int, default=None,
                         help='DPI of input images, supply this to get '
                              'proportional page sizes in resulting PDF')
@@ -444,14 +464,14 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    if (args.from_pdf is None and args.from_imagestack is None) or args.out_pdf is None:
+    if (args.from_pdf is None and args.from_imagestack is None and args.from_imagestackfile is None) or args.out_pdf is None:
         sys.stderr.write('***** Error: --from-pdf or --out-pdf missing\n\n')
         parser.print_help()
         sys.exit(1)
 
-    if args.from_imagestack is not None and args.from_pdf is not None:
-        sys.stderr.write('***** Error: --from-pdf and --from-imagestack are '
-                         'mutually exclusive\n\n')
+    if args.from_imagestack is not None and args.from_pdf is not None and args.from_imagestackfile is not None:
+        sys.stderr.write('***** Error: --from-pdf, --from-imagestack and '
+                         '--from-imagestackfile are mutually exclusive\n\n')
         parser.print_help()
         sys.exit(1)
 
@@ -462,6 +482,14 @@ if __name__ == '__main__':
     image_files = None
     if args.from_imagestack:
         image_files = sorted(glob(args.from_imagestack))
+
+    # TODO: Tar support
+    imgzip = None
+    if args.from_imagestackfile:
+        imgzip = zipfile.ZipFile(args.from_imagestackfile)
+
+        # TODO: XXX: This also contains the directory?
+        image_files = sorted(imgzip.namelist())[1:]
 
     hocr_file = args.hocr_file
     outfile = args.out_pdf
@@ -492,7 +520,7 @@ if __name__ == '__main__':
 
     # 1. Create text-only PDF from hOCR first, but honour page sizes of in_pdf
     create_tess_textonly_pdf(hocr_file, tess_tmp_path, in_pdf=in_pdf,
-            image_files=image_files, dpi=args.dpi,
+            image_files=image_files, image_zip=imgzip, dpi=args.dpi,
             skip_pages=skip_pages, reporter=reporter)
 
     if args.verbose:
@@ -507,6 +535,7 @@ if __name__ == '__main__':
         insert_images_mrc(outdoc, hocr_file,
                           from_pdf=in_pdf,
                           image_files=image_files,
+                          image_zip=imgzip,
                           dpi=args.dpi,
                           bg_slope=args.bg_slope,
                           fg_slope=args.fg_slope,
@@ -561,7 +590,10 @@ if __name__ == '__main__':
             if args.stop_after is not None and (idx - skipped_pages) > args.stop_after:
                 break
 
-            bytesum += os.path.getsize(fname)
+            if imgzip is not None:
+                bytesum += imgzip.getinfo(fname).file_size
+            else:
+                bytesum += os.path.getsize(fname)
 
         oldsize = bytesum
 
