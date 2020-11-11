@@ -30,8 +30,10 @@ improve background compression using JPEG2000 ROI
 
 KDU_COMPRESS = 'kdu_compress'
 KDU_EXPAND = 'kdu_expand'
-#KDU_COMPRESS = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_compress'
-#KDU_EXPAND = '/home/merlijn/archive/microfilm-issue-generator/bin/kdu_expand'
+
+
+def invert_mask(mask):
+    return mask ^ np.ones(mask.shape, dtype=bool)
 
 
 def threshold_image(pil_image, rev=False, otsu=False, block_size=9):
@@ -101,20 +103,27 @@ def denoise_bregman(binary_img):
     return denoise
 
 # TODO: Rename, can be either foreground or background
-def special_foreground(mask, fg, sigma=5, mode=None):
+def partial_blur(mask, img, sigma=5, mode=None):
+    """
+    Blur a part of the image 'img', where mask = 0.
+    The actual values used by the blur are colours where mask = '1', effectively
+    'erasing/blurring' parts of an image where mask = 0 with colours where mask = 1.
+
+    At the end, restore all pixels from img where mask = 1.
+    """
     maskf = np.array(mask, dtype=np.float)
 
     if mode == 'RGB' or mode == 'RGBA':
-        in_r = fg[:, :, 0] * maskf
-        in_g = fg[:, :, 1] * maskf
-        in_b = fg[:, :, 2] * maskf
+        in_r = img[:, :, 0] * maskf
+        in_g = img[:, :, 1] * maskf
+        in_b = img[:, :, 2] * maskf
         filter_r = ndimage.filters.gaussian_filter(in_r, sigma = sigma)
         filter_g = ndimage.filters.gaussian_filter(in_g, sigma = sigma)
         filter_b = ndimage.filters.gaussian_filter(in_b, sigma = sigma)
     else:
-        fgf = np.copy(fg)
-        fgf = np.array(fgf, dtype=np.float)
-        filter = ndimage.filters.gaussian_filter(fgf * maskf, sigma = sigma)
+        imgf = np.copy(img)
+        imgf = np.array(imgf, dtype=np.float)
+        filter = ndimage.filters.gaussian_filter(imgf * maskf, sigma = sigma)
 
     weights = ndimage.filters.gaussian_filter(maskf, sigma = sigma)
 
@@ -123,17 +132,18 @@ def special_foreground(mask, fg, sigma=5, mode=None):
         filter_g /= weights + 0.00001
         filter_b /= weights + 0.00001
 
-        newfg = np.copy(fg)
-        newfg[:, :, 0] = filter_r
-        newfg[:, :, 1] = filter_g
-        newfg[:, :, 2] = filter_b
+        newimg = np.copy(img)
+        newimg[:, :, 0] = filter_r
+        newimg[:, :, 1] = filter_g
+        newimg[:, :, 2] = filter_b
     else:
         filter /= weights + 0.00001
-        newfg = np.array(filter, dtype=np.uint8)
+        newimg = np.array(filter, dtype=np.uint8)
 
-    newfg[mask] = fg[mask]
+    newimg[mask] = img[mask]
 
-    return newfg
+    return newimg
+
 
 
 
@@ -202,33 +212,12 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
     mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
 
-    foreground_arr = special_foreground(mask_arr, image_arr, sigma=6,
+    foreground_arr = partial_blur(mask_arr, image_arr, sigma=6,
             mode=image.mode)
 
-    ## TODO: Clean this up
-    mask_arr_f = np.array(mask_arr, dtype=np.float)
-    mask_blur = ndimage.filters.gaussian_filter(mask_arr_f, sigma=1)
-    #mask_blur = ndimage.filters.gaussian_filter(mask_arr_f, sigma=1)
-    mask_blur[mask_blur > 0.00001] = 1.
-    mask_blurb = mask_blur > 0.0001
-    mask_inv_blur = mask_blurb ^ np.ones(mask_blurb.shape, dtype=bool)
-    #image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
-    #image_arr = special_foreground(mask_inv_blur, image_arr, sigma=10,
-    image_arr = special_foreground(mask_inv, image_arr, sigma=10,
+    image_arr = partial_blur(mask_inv, image_arr, sigma=10,
                                    mode=image.mode)
 
-    #diff_mask = mask_blurb & ~mask_arr
-    #diff_mask_inv = diff_mask ^ np.ones(diff_mask.shape, dtype=bool)
-    #bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=10)
-    ##bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=30)
-    ##bg_blur = special_foreground(diff_mask_inv, image_arr, mode=image.mode, sigma=5)
-    #image_arr = bg_blur
-
-    ## image_arr = background
-    #image_arr = special_foreground(mask_inv, image_arr, sigma=10,
-    #                               mode=image.mode)
-
-    # TODO: Turn this into a command line argument:
     if bg_downsample is not None:
         image2 = Image.fromarray(image_arr)
         w, h = image2.size
