@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import argparse
+
+from PIL import Image
+
+from internetarchivepdf.mrc import threshold_image3, denoise_bregman, \
+        invert_mask
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('PDF recoder thresholder')
+    parser.add_argument('--invert-mask', default=False, action='store_true')
+    parser.add_argument('--with-preblur', default=False, action='store_true')
+    parser.add_argument('--with-predenoise', default=False, action='store_true')
+    parser.add_argument('--with-postdenoise', default=False, action='store_true')
+    parser.add_argument('infile', nargs='?', default=None)
+    parser.add_argument('outfile', nargs='?', default=None)
+    args = parser.parse_args()
+
+    img = Image.open(args.infile)
+
+    if img.mode != 'L' or img.mode != 'LA':
+        img = img.convert('L')
+
+    if args.with_predenoise:
+        raise Exception('Not yet implemented')
+
+    if args.with_preblur:
+        raise Exception('Not yet implemented')
+
+    arr = threshold_image3(img)
+
+    if args.with_postdenoise:
+        arr = denoise_bregman(arr)
+
+    if args.invert_mask:
+        arr = invert_mask(arr)
+
+    outimg = Image.fromarray(arr)
+    outimg.save(args.outfile)
