@@ -444,7 +444,8 @@ if __name__ == '__main__':
                         help='Program to launch when reporting progress.')
     parser.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
-                              ' 2 is MRC (default is 2)', type=int)
+                              ' 2 is MRC (default is 2). 3 is skip images',
+                              type=int)
     parser.add_argument('--jbig2', default=False, help='Encode using jbig2',
                         action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
@@ -560,8 +561,11 @@ if __name__ == '__main__':
                           jbig2=args.jbig2,
                           bg_downsample=args.bg_downsample,
                           reporter=reporter)
-    else:
+    elif args.image_mode in (0, 1):
         insert_images(in_pdf, outdoc, mode=args.image_mode)
+    elif args.image_mode == 3:
+        # 3 = skip
+        pass
 
     # 3. Add PDF/A compliant data
     write_pdfa(outdoc)
