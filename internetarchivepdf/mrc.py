@@ -145,6 +145,41 @@ def partial_blur(mask, img, sigma=5, mode=None):
     return newimg
 
 
+def partial_boxblur(mask, fg, size=5, mode=None):
+    maskf = np.array(mask, dtype=np.float)
+
+    if mode == 'RGB' or mode == 'RGBA':
+        in_r = fg[:, :, 0] * maskf
+        in_g = fg[:, :, 1] * maskf
+        in_b = fg[:, :, 2] * maskf
+        filter_r = ndimage.uniform_filter(in_r, size = size)
+        filter_g = ndimage.uniform_filter(in_g, size = size)
+        filter_b = ndimage.uniform_filter(in_b, size = size)
+    else:
+        fgf = np.copy(fg)
+        fgf = np.array(fgf, dtype=np.float)
+        filter = ndimage.uniform_filter(fgf * maskf, size = size)
+
+    weights = ndimage.uniform_filter(maskf, size = size)
+
+    if mode == 'RGB' or mode == 'RGBA':
+        filter_r /= weights + 0.00001
+        filter_g /= weights + 0.00001
+        filter_b /= weights + 0.00001
+
+        newfg = np.copy(fg)
+        newfg[:, :, 0] = filter_r
+        newfg[:, :, 1] = filter_g
+        newfg[:, :, 2] = filter_b
+    else:
+        filter /= weights + 0.00001
+        newfg = np.array(filter, dtype=np.uint8)
+
+    newfg[mask] = fg[mask]
+
+    return newfg
+
+
 
 
 def create_mrc_components(image):

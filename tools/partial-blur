@@ -5,28 +5,33 @@ import argparse
 import numpy as np
 from PIL import Image
 
-from internetarchivepdf.mrc import partial_blur
+from internetarchivepdf.mrc import partial_blur, partial_boxblur
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('PDF recoder partial blurrer')
     parser.add_argument('--use-boxblur', default=False, action='store_true')
+    parser.add_argument('--use-fast-selective', default=False, action='store_true')
     parser.add_argument('--sigma', default=1, type=int)
+    parser.add_argument('--size', default=1, type=int)
     parser.add_argument('infile', nargs='?', default=None)
     parser.add_argument('maskfile', nargs='?', default=None)
     parser.add_argument('outfile', nargs='?', default=None)
 
     args = parser.parse_args()
 
+    if args.use_fast_selective:
+        raise NotImplementedError('Fast selective blur not yet implemented')
+
     img = Image.open(args.infile)
     mask = Image.open(args.maskfile)
-
-    if args.use_boxblur:
-        raise Exception('Not yet implemented')
 
     img_arr = np.array(img)
     mask_arr = np.array(mask)
 
-    arr = partial_blur(mask_arr, img_arr, sigma=args.sigma, mode=img.mode)
+    if args.use_boxblur:
+        arr = partial_boxblur(mask_arr, img_arr, size=args.size, mode=img.mode)
+    else:
+        arr = partial_blur(mask_arr, img_arr, sigma=args.sigma, mode=img.mode)
 
     outimg = Image.fromarray(arr)
     outimg.save(args.outfile)
