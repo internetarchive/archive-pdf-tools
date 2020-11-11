@@ -326,6 +326,84 @@ class TessPDFRenderer(object):
         self.AppendString(endstream_obj)
         objsize += len(endstream_obj)
         self.AppendPDFObjectDIY(objsize)
+        stream = (b'''9 0 obj
+<<
+  /Type /Font
+  /Subtype /Type0
+  /BaseFont /Heiti
+  /DescendantFonts [10 0 R]
+  /Encoding/UniGB-UTF16-H
+>>
+endobj
+''')
+#        stream = (b'''9 0 obj
+#<<
+#  /Type /Font
+#  /Subtype /Type1
+#  /BaseFont /Times-Roman
+#  /FontDescriptor 10 0 R
+#  /Encoding /WinAnsiEncoding
+#>>
+#endobj
+#''')
+#        stream = (b'''9 0 obj
+#<<
+#  /Type /Font
+#  /Subtype /Type1
+#  /BaseFont /Times-Roman
+#  /FirstChar 30
+#  /LastChar 255
+#  /Widths [ 778 778 250 333 408 500 500 833 778 180 333 333 500
+#      564 250 333 250 278 500 500 500 500 500 500 500 500 500
+#      500 278 278 564 564 564 444 921 722 667 667 722 611 556
+#      722 722 333 389 722 611 889 722 722 556 722 667 556 611
+#      722 722 944 722 722 611 333 278 333 469 500 333 444 500
+#      444 500 444 333 500 500 278 278 500 278 778 500 500 500
+#      500 333 389 278 500 500 722 500 500 444 480 200 480 541
+#      778 500 778 333 500 444 1000 500 500 333 1000 556 333 889
+#      778 611 778 778 333 333 444 444 350 500 1000 333 980 389
+#      333 722 778 444 722 250 333 500 500 500 500 200 500 333
+#      760 276 500 564 333 760 500 400 549 300 300 333 576 453
+#      250 333 300 310 500 750 750 750 444 722 722 722 722 722
+#      722 889 667 611 611 611 611 333 333 333 333 722 722 722
+#      722 722 722 722 564 722 722 722 722 722 722 556 500 444
+#      444 444 444 444 444 667 444 444 444 444 444 278 278 278
+#      278 500 500 500 500 500 500 500 549 500 500 500 500 500
+#      500 500 500 ]
+#  /FontDescriptor 10 0 R
+#  /Encoding /WinAnsiEncoding
+#>>
+#endobj
+#''')
+        self.AppendPDFObject(stream)
+        stream = (b'''10 0 obj
+<< /Type/Font/Subtype/CIDFontType0/BaseFont/Heiti/CIDSystemInfo<</Registry(Adobe)/Ordering(GB1)/Supplement 5>>/FontDescriptor 10 0 R >>
+endobj
+''')
+#        stream = (b'''10 0 obj
+#<<
+#  /Type /FontDescriptor
+#  /FontName /Times-Roman
+#  /FontFamily (Times)
+#  /Flags 34
+#  /FontBBox [ -168 -218 1000 898 ]
+#  /ItalicAngle 0
+#  /Ascent 683
+#  /Descent -217
+#  /CapHeight 662
+#  /XHeight 450
+#  /StemV 84
+#  /StemH 28
+#>>
+#endobj
+#''')
+        self.AppendPDFObject(stream)
+        stream = (b'''11 0 obj
+<< /Type/FontDescriptor/FontName(Heiti)/FontBBox[-200 -200 1200 1200]/Flags
+4/ItalicAngle 0/Ascent 1000/Descent -200/StemV 80 >>
+endobj
+''')
+        self.AppendPDFObject(stream)
 
     def EndDocumentHandler(self, title='No title provided'):
         kPagesObjectNumber = 2
@@ -404,7 +482,10 @@ class TessPDFRenderer(object):
           b'  <<\n'
           b'    ' + xobject +
           b'    /ProcSet [ /PDF /Text /ImageB /ImageI /ImageC ]\n'
-          b'    /Font << /f-0-0 3 0 R >>\n'
+          b'    /Font <<\n'
+          b'      /f-0-0 3 0 R\n'
+          b'      /f-0-0 9 0 R\n'
+          b'    >>\n'
           b'  >>\n'
           b'>>\n'
           b'endobj\n')
