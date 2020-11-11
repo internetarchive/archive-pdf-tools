@@ -14,3 +14,21 @@ def scandata_xml_get_skip_pages(xml_file):
             pass
 
     return skip
+
+def scandata_xml_get_page_numbers(xml_file):
+    scandata = xmltodict.parse(open(xml_file, 'rb'))
+
+    res = []
+
+    for idx in range(len(scandata['book']['pageData']['page'])):
+        try:
+            add_to_access_format = scandata['book']['pageData']['page'][idx]['addToAccessFormats']
+            if add_to_access_format == 'false':
+                continue
+        except KeyError:
+            pass
+
+        pno = scandata['book']['pageData']['page'][idx].get('pageNumber', None)
+        res.append(pno)
+
+    return res

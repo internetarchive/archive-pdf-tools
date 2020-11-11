@@ -21,7 +21,9 @@ import fitz
 from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
         encode_mrc_images
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
-from internetarchivepdf.scandata import scandata_xml_get_skip_pages
+from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
+from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
+        scandata_xml_get_page_numbers
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions)
 
@@ -309,6 +311,18 @@ def write_pdfa(to_pdf):
     to_pdf.updateObject(catalogxref, s)
 
 
+def write_page_labels(to_pdf, scandata):
+    page_numbers = scandata_xml_get_page_numbers(scandata)
+    res = parse_series(page_numbers)
+
+    catalogxref = to_pdf.PDFCatalog()
+    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    s = s[:-2]
+    s += series_to_pdf(res)
+    s += '>>'
+    to_pdf.updateObject(catalogxref, s)
+
+
 def write_metadata(from_pdf, to_pdf, extra_metadata):
     doc_md = from_pdf.metadata if from_pdf is not None else {}
 
@@ -415,11 +429,13 @@ if __name__ == '__main__':
                         help='hOCR file containing page information '
                               '(currently not optional)')
     parser.add_argument('-S', '--scandata-file', type=str, default=None,
-                        help='Scandata XML file containing information on '
+                        help='archive.org specific.'
+                              'Scandata XML file containing information on '
                               'which pages to skip (optional). This is helpful '
                               'if the input PDF is a PDF where certain '
                               'pages have already been skipped, but the hOCR '
-                              'still has the pages in its file structure.')
+                              'still has the pages in its file structure, '
+                              'and is also used for page labels (numbering)')
     parser.add_argument('-o', '--out-pdf', type=str, default=None,
                         help='Output file to write recoded PDF to.')
     parser.add_argument('-O', '--out-dir', type=str, default=None,
@@ -549,6 +565,10 @@ if __name__ == '__main__':
 
     # 3. Add PDF/A compliant data
     write_pdfa(outdoc)
+
+    if args.scandata_file is not None:
+        # XXX: we parse scandata twice now, let's not do that
+        write_page_labels(outdoc, args.scandata_file)
 
     # 4. Write metadata
     extra_metadata = {}
