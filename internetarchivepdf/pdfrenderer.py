@@ -105,22 +105,17 @@ class TessPDFRenderer(object):
                 first_word_of_line = True
                 for word in line['words']:
                     if first_word_of_line:
-                        x1, y1, x2, y2 = line['bbox']
+                        bx1, by1, bx2, by2 = line['bbox']
+                        slope, const = line['baseline']
 
-                        # TODO: I am not sure if this baseline code makes sense yet
-                        slope, constant = line['baseline']
-                        angle = atan(slope)
-                        diff = cos(angle) * constant
-                        diff = diff * 72 / ppi
-                        diff = (y2-y1) - diff
-
-                        #print('slope:', slope, 'constant:', constant)
-                        #print('pts:', x1, y1, x2, y2)
-                        #print('diff:', diff, 'normdiff:', y2-y1)
+                        x1 = bx1
+                        y1 = by2 + const
+                        x2 = bx2
+                        dx = x2-x1
+                        y2 = y1 + slope*(dx)
 
                         line_x1, line_y1, line_x2, line_y2 = \
-                                ClipBaseline(ppi, x1, y1, x2, y2 - diff)
-                                #ClipBaseline(ppi, x1, y1, x2, y2)
+                                ClipBaseline(ppi, x1, y1, x2, y2)
 
                         writing_direction = word['writing_direction']
                         if writing_direction == WRITING_DIRECTION_UNSPECIFIED:
@@ -128,12 +123,10 @@ class TessPDFRenderer(object):
 
                     word_x1, word_y1, word_x2, word_y2 = word['bbox']
 
-                    word_height = word_y2 - word_y1
-
                     x, y, word_length = GetWordBaseline(writing_direction, ppi, height,
                             word_x1, word_y1, word_x2, word_y2,
-                            line_x1, line_y1 + word_height,
-                            line_x2, line_y2 + word_height)
+                            line_x1, line_y1,
+                            line_x2, line_y2)
 
                     if (writing_direction != old_writing_direction) or new_block:
                         a, b, c, d = \
