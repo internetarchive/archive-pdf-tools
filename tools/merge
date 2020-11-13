@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+import argparse
+
+from PIL import Image
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('PDF recoder recombiner')
+
+    parser.add_argument('maskfile', nargs='?', default=None)
+    parser.add_argument('fgfile', nargs='?', default=None)
+    parser.add_argument('bgfile', nargs='?', default=None)
+    parser.add_argument('outfile', nargs='?', default=None)
+
+    args = parser.parse_args()
+
+    mask = Image.open(args.maskfile)
+    fg = Image.open(args.fgfile)
+    bg = Image.open(args.bgfile)
+
+    bg.putalpha(255)
+    fg.putalpha(mask)
+
+    bgc = bg.convert('RGBA')
+    fgc = fg.convert('RGBA')
+
+    bgc.alpha_composite(fgc)
+
+    # Remove alpha layer if any, we don't care
+    if bg.mode in ('RGB', 'RGBA'):
+         bgc = bgc.convert('RGB')
+    elif bg.mode in ('L', 'LA'):
+         bgc = bgc.convert('L')
+
+    bgc.save(args.outfile)

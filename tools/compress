@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+from os import remove
+import argparse
+import subprocess
+
+from internetarchivepdf.mrc import KDU_COMPRESS
+
+
+fg_slope = 48750
+bg_slope = 48000
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('PDF recoder thresholder')
+    parser.add_argument('maskfile', nargs='?', default=None)
+    parser.add_argument('fgfile', nargs='?', default=None)
+    parser.add_argument('bgfile', nargs='?', default=None)
+    parser.add_argument('fgoutfile', nargs='?', default=None)
+    parser.add_argument('bgoutfile', nargs='?', default=None)
+
+    args = parser.parse_args()
+
+
+    subprocess.check_call(['convert', args.bgfile, args.bgfile + '.tiff'])
+    subprocess.check_call([KDU_COMPRESS,
+        '-num_threads', '0',
+        '-i', args.bgfile + '.tiff', '-o', args.bgoutfile,
+        '-slope', str(bg_slope),
+        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
+        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+    subprocess.check_call(['convert', args.maskfile, args.maskfile + '.pgm'])
+    subprocess.check_call(['convert', args.fgfile, args.fgfile + '.tiff'])
+    subprocess.check_call([KDU_COMPRESS,
+        '-num_threads', '0',
+        '-i', args.fgfile + '.tiff', '-o', args.fgoutfile,
+        '-slope', str(fg_slope),
+        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
+         '-roi', args.maskfile + '.pgm,0.5',
+        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+    remove(args.maskfile + '.pgm')
+    remove(args.fgfile + '.tiff')
+    remove(args.bgfile + '.tiff')
+
