@@ -3,4 +3,4 @@ numpy
 lxml
 scikit-image
 Pillow
-roman==1.4
+roman==3.3
