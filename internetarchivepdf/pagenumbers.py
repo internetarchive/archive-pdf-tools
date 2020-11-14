@@ -136,22 +136,17 @@ def parse_series(series):
             raise ValueError('Alpha page numbers are not supported at the '
                              ' moment due to ambiguity in the spec.')
 
-        print('Found value %s with type %d and numerical value %s' % (val,
-            val_type, val_value))
-
         if val_type != last_val_type:
             new = True
 
         if val_type == INVALID and last_val_type == INVALID:
             pass
         else:
-            print('Types:', last_val_type, val_type)
             if last_val_type == INVALID:
                 new = True
             elif val_type == INVALID:
                 new = True
             elif val_value != last_value + 1:
-                print('Value %d != %d + 1' % (val_value, last_value))
                 new = True
 
         if new:
