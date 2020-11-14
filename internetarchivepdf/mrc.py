@@ -5,12 +5,15 @@ from os import close, remove
 from glob import glob
 from tempfile import mkstemp
 import subprocess
+from time import time
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps
 from skimage.filters import threshold_local, threshold_otsu, threshold_sauvola
-from skimage.restoration import denoise_tv_bregman
+from skimage.restoration import denoise_tv_bregman, estimate_sigma
+
 from scipy import ndimage
 import numpy as np
+
 
 import fitz
 
@@ -218,6 +221,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
     MIX_THRESHOLD = True
 
+    t = time()
     for paragraphs in hocr_word_data:
         for lines in paragraphs['lines']:
             for word in lines['words']:
@@ -228,18 +232,66 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
                 wordimg = img.crop(word['bbox'])
                 thres = threshold_image2(wordimg)
+
+                ones = np.count_nonzero(thres)
+                zeroes = np.count_nonzero(np.invert(thres))
+
+                # TODO: use multichannel here? I don't think that makes sense
+                sigma_est = np.mean(estimate_sigma(thres))
+
+                if sigma_est > 0.1:
+                    # Invert. (TODO: we should do this in a more efficient
+                    # manner)
+                    thres_i = threshold_image2(ImageOps.invert(wordimg))
+
+                    # TODO: use multichannel here? I don't think that makes sense
+                    sigma_est_i = np.mean(estimate_sigma(thres_i))
+
+                    if sigma_est < sigma_est_i:
+                        pass
+                    elif abs(sigma_est_i - sigma_est) < 0.05:
+                        thres |= thres_i
+                    elif sigma_est_i < sigma_est:
+                        thres = thres_i
+
                 mask_arr[left:right, top:bottom] = thres
 
                 # TODO: Set thres values in array_mask
 
                 intbox = [int(x) for x in word['bbox']]
 
+    print('hOCR mask generation took:', time()-t)
+
     image_arr = np.array(image)
 
-    if MIX_THRESHOLD:
-        thres_arr = threshold_image3(img)
+    imgf = np.array(img, dtype=np.float)
 
-        thres_arr = denoise_bregman(thres_arr)
+    if MIX_THRESHOLD:
+        t = time()
+        sigma_est = np.mean(estimate_sigma(imgf))
+        if sigma_est > 1.0:
+            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
+
+        n_sigma_est = np.mean(estimate_sigma(imgf))
+        if sigma_est > 1.0 and n_sigma_est > 1.0:
+            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
+
+        print('Image pre-threshold blur:', time()-t)
+        t = time()
+        imgn = Image.fromarray(np.array(img, dtype=np.int8))
+        print('img convert took:', time()-t)
+        t = time()
+        thres_arr = threshold_image3(imgn)
+
+        print('Image thresholding with threshold_image3 took:', time()-t)
+
+        t = time()
+        sigma_est = np.mean(estimate_sigma(thres_arr))
+        if sigma_est > 0.1:
+            print('sigma_est > 0.1, performing denoise on mask')
+            thres_arr = denoise_bregman(thres_arr)
+
+        print('sigma_est took', time()-t)
 
         thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
 
@@ -247,17 +299,29 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
     mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
 
-    foreground_arr = partial_blur(mask_arr, image_arr, sigma=6,
+    t = time()
+    # Take foreground pixels and create a blur around them, forcing the encoder
+    # to not mess with our foreground pixels/colours too much, finally, plug
+    # back our original foreground pixels in the blurred image.
+    foreground_arr = partial_blur(mask_arr, image_arr, sigma=3,
             mode=image.mode)
+    print('Foreground generation took', time()-t)
 
-    image_arr = partial_blur(mask_inv, image_arr, sigma=10,
+    t = time()
+    # Take background pixels and stuff them into our foreground pixels, then
+    # restore background.
+    # This really only needs to touch pixels where mask_inv = 0.
+    image_arr = partial_blur(mask_inv, image_arr, sigma=3,
                                    mode=image.mode)
+    print('Background pass 1 took', time()-t)
 
     if bg_downsample is not None:
+        t = time()
         image2 = Image.fromarray(image_arr)
         w, h = image2.size
         image2.thumbnail((w/bg_downsample, h/bg_downsample))
         image_arr = np.array(image2)
+        print('Downsampling took', time()-t)
 
     return mask_arr, image_arr, foreground_arr
 
