@@ -81,8 +81,8 @@ def threshold_image2(pil_image):
 def threshold_image3(pil_image, rev=False):
     img = np.array(pil_image)
 
-    window_size = 101
-    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.4)
+    window_size = 51
+    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.3)
     if rev:
         binary_img = img > thres_sauvola
     else:
