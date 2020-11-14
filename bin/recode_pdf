@@ -174,8 +174,6 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 stdout=subprocess.DEVNULL)
             os.remove(jpx_in)
 
-            tmp = Image.open(tiff_in)
-
             image = Image.open(tiff_in)
         else:
             # Do not subtract skipped pages here
@@ -191,7 +189,16 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 image.load()
                 print('Time taken to load jpeg2000:', time()-t)
             else:
-                image = Image.open(imgfile)
+                fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=TMP_DIR)
+                os.close(fd)
+                os.remove(tiff_in)
+                subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                    tiff_in], stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL)
+
+                image = Image.open(tiff_in)
+                image.load()
+                os.remove(tiff_in)
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(image,
