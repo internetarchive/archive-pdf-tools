@@ -259,12 +259,6 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
         image2.thumbnail((w/bg_downsample, h/bg_downsample))
         image_arr = np.array(image2)
 
-    fg = Image.fromarray(foreground_arr)
-    en = ImageEnhance.Brightness(fg)
-    tmp = en.enhance(0.5)
-    en = ImageEnhance.Contrast(tmp)
-    foreground_arr = np.array(en.enhance(2.0))
-
     return mask_arr, image_arr, foreground_arr
 
 
