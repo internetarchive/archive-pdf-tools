@@ -95,7 +95,7 @@ def threshold_image3(pil_image, rev=False):
 
 
 def denoise_bregman(binary_img):
-    thresf = np.array(binary_img, dtype=np.float)
+    thresf = np.array(binary_img, dtype=np.float32)
     #denoise = denoise_tv_bregman(thresf, weight=0.25)
     denoise = denoise_tv_bregman(thresf, weight=1.)
 
@@ -114,7 +114,7 @@ def partial_blur(mask, img, sigma=5, mode=None):
 
     At the end, restore all pixels from img where mask = 1.
     """
-    maskf = np.array(mask, dtype=np.float)
+    maskf = np.array(mask, dtype=np.float32)
 
     if mode == 'RGB' or mode == 'RGBA':
         in_r = img[:, :, 0] * maskf
@@ -125,7 +125,7 @@ def partial_blur(mask, img, sigma=5, mode=None):
         filter_b = ndimage.filters.gaussian_filter(in_b, sigma = sigma)
     else:
         imgf = np.copy(img)
-        imgf = np.array(imgf, dtype=np.float)
+        imgf = np.array(imgf, dtype=np.float32)
         filter = ndimage.filters.gaussian_filter(imgf * maskf, sigma = sigma)
 
     weights = ndimage.filters.gaussian_filter(maskf, sigma = sigma)
@@ -149,7 +149,7 @@ def partial_blur(mask, img, sigma=5, mode=None):
 
 
 def partial_boxblur(mask, fg, size=5, mode=None):
-    maskf = np.array(mask, dtype=np.float)
+    maskf = np.array(mask, dtype=np.float32)
 
     if mode == 'RGB' or mode == 'RGBA':
         in_r = fg[:, :, 0] * maskf
@@ -160,7 +160,7 @@ def partial_boxblur(mask, fg, size=5, mode=None):
         filter_b = ndimage.uniform_filter(in_b, size = size)
     else:
         fgf = np.copy(fg)
-        fgf = np.array(fgf, dtype=np.float)
+        fgf = np.array(fgf, dtype=np.float32)
         filter = ndimage.uniform_filter(fgf * maskf, size = size)
 
     weights = ndimage.uniform_filter(maskf, size = size)
@@ -264,7 +264,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None):
 
     image_arr = np.array(image)
 
-    imgf = np.array(img, dtype=np.float)
+    imgf = np.array(img, dtype=np.float32)
 
     if MIX_THRESHOLD:
         t = time()
