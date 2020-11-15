@@ -531,6 +531,14 @@ if __name__ == '__main__':
         STOP -= 1
     TMP_DIR = args.tmp_dir
 
+    if VERBOSE:
+        from numpy.core._multiarray_umath import __cpu_features__ as cpu_have
+        cpu = cpu_have
+        for k, v in cpu.items():
+            if v:
+                print('\t', k)
+
+
     reporter = args.reporter.split(' ') if args.reporter else None
 
     start_time = time()
