@@ -3,6 +3,8 @@ from os import remove
 import argparse
 import subprocess
 
+from PIL import Image
+
 from internetarchivepdf.mrc import KDU_COMPRESS
 
 
@@ -16,11 +18,17 @@ if __name__ == '__main__':
     parser.add_argument('bgfile', nargs='?', default=None)
     parser.add_argument('fgoutfile', nargs='?', default=None)
     parser.add_argument('bgoutfile', nargs='?', default=None)
+    parser.add_argument('--bg-downscale', type=int, default=None)
 
     args = parser.parse_args()
 
 
-    subprocess.check_call(['convert', args.bgfile, args.bgfile + '.tiff'])
+    bgimg = Image.open(args.bgfile)
+    if args.bg_downscale is not None:
+        w, h = bgimg.size
+        bgimg.thumbnail((w/args.bg_downscale, h/args.bg_downscale))
+
+    bgimg.save(args.bgfile + '.tiff')
     subprocess.check_call([KDU_COMPRESS,
         '-num_threads', '0',
         '-i', args.bgfile + '.tiff', '-o', args.bgoutfile,
@@ -29,7 +37,8 @@ if __name__ == '__main__':
         ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
     subprocess.check_call(['convert', args.maskfile, args.maskfile + '.pgm'])
-    subprocess.check_call(['convert', args.fgfile, args.fgfile + '.tiff'])
+    fgimg = Image.open(args.fgfile)
+    fgimg.save(args.fgfile + '.tiff')
     subprocess.check_call([KDU_COMPRESS,
         '-num_threads', '0',
         '-i', args.fgfile + '.tiff', '-o', args.fgoutfile,
