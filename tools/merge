@@ -19,6 +19,9 @@ if __name__ == '__main__':
     fg = Image.open(args.fgfile)
     bg = Image.open(args.bgfile)
 
+    if bg.size != fg.size:
+        bg = bg.resize(fg.size, resample=Image.BICUBIC)
+
     bg.putalpha(255)
     fg.putalpha(mask)
 
