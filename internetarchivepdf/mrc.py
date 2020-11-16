@@ -276,18 +276,18 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
         t = time()
         sigma_est = np.mean(estimate_sigma(imgf))
         time_data.append(('est_1', time() - t))
-        t = time()
         if sigma_est > 1.0:
-            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
-        time_data.append(('blur_1', time() - t))
-
-        t = time()
-        n_sigma_est = np.mean(estimate_sigma(imgf))
-        time_data.append(('est_2', time() - t))
-        if sigma_est > 1.0 and n_sigma_est > 1.0:
             t = time()
-            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
-            time_data.append(('blur_2', time() - t))
+            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
+            time_data.append(('blur_1', time() - t))
+
+            t = time()
+            n_sigma_est = np.mean(estimate_sigma(imgf))
+            time_data.append(('est_2', time() - t))
+            if sigma_est > 1.0 and n_sigma_est > 1.0:
+                t = time()
+                imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
+                time_data.append(('blur_2', time() - t))
 
         t = time()
         thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
