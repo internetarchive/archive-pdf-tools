@@ -13,6 +13,7 @@ from os.path import join
 import shutil
 import json
 from glob import glob
+from math import ceil
 
 from PIL import Image
 from PIL import Jpeg2KImagePlugin
@@ -332,6 +333,171 @@ def write_page_labels(to_pdf, scandata):
     to_pdf.updateObject(catalogxref, s)
 
 
+
+def write_basic_ua(to_pdf, language=None):
+    # Create StructTreeRoot and descendants, allocate new xrefs as needed
+    structtreeroot_xref = to_pdf._getNewXref()
+    parenttree_xref = to_pdf._getNewXref()
+    page_info_xrefs = []
+    page_info_a_xrefs = []
+    parenttree_kids_xrefs = []
+    parenttree_kids_indirect_xrefs = []
+
+    kids_cnt = ceil(to_pdf.pageCount / 32)
+    for _ in range(kids_cnt):
+        kid_xref = to_pdf._getNewXref()
+        parenttree_kids_xrefs.append(kid_xref)
+
+    # Parent tree contains a /Kids entry with a list of xrefs, that each contain
+    # a list of xrefs (limited to 32 per), and each entry in that list of list
+    # of xrefs contains a single reference that points to the page info xref.
+    for idx, page in enumerate(to_pdf):
+        page_info_xref = to_pdf._getNewXref()
+        page_info_xrefs.append(page_info_xref)
+
+        page_info_a_xref = to_pdf._getNewXref()
+        page_info_a_xrefs.append(page_info_a_xref)
+
+        parenttree_kids_indirect_xref = to_pdf._getNewXref()
+        parenttree_kids_indirect_xrefs.append(parenttree_kids_indirect_xref)
+
+
+    for idx in range(kids_cnt):
+        start = idx*32
+        stop = (idx+1)*31
+        if stop > to_pdf.pageCount:
+            stop = to_pdf.pageCount - 1
+
+        s = """<<
+  /Limits [ %d %d ]
+""" % (start, stop - 1)
+        s += '  /Nums [ '
+
+        for pidx in range(start, stop):
+            s += '%d %d 0 R ' % (pidx, parenttree_kids_indirect_xrefs[pidx])
+
+            if idx % 7 == 0:
+                s = s[:-1] + '\n' + '      '
+
+        s += ']\n>>'
+
+        to_pdf.updateObject(parenttree_kids_xrefs[idx], s)
+
+
+    for idx, page in enumerate(to_pdf):
+        intrect = tuple([int(x) for x in page.rect])
+
+        s = """<<
+  /BBox [ %d %d %d %d ]
+  /InlineAlign /Center
+  /O /Layout
+  /Placement /Block
+>>
+""" % intrect
+        to_pdf.updateObject(page_info_a_xrefs[idx], s)
+
+        s = """ <<
+  /A %d 0 R
+  /K 0
+  /P %d 0 R
+  /Pg %d 0 R
+  /S /Figure
+>>""" % (page_info_a_xrefs[idx], structtreeroot_xref, page.xref)
+
+        to_pdf.updateObject(page_info_xrefs[idx], s)
+
+
+    for idx, page in enumerate(to_pdf):
+        s = '[ %d 0 R ]' % page_info_a_xrefs[idx]
+        to_pdf.updateObject(parenttree_kids_indirect_xrefs[idx], s)
+
+
+    K = '  /Kids [ '
+    for idx in range(kids_cnt):
+        K += '%d 0 R ' % parenttree_kids_xrefs[idx]
+
+        if idx % 7 == 0:
+            K = K[:-1] + '\n' + '      '
+
+    K += ']'
+    s = """<<
+%s
+>>
+""" % K
+
+    to_pdf.updateObject(parenttree_xref, s)
+
+    K = '  /K [ '
+    for idx, xref in enumerate(page_info_xrefs):
+        K += '%d 0 R ' % xref
+
+        if idx % 7 == 0:
+            K = K[:-1] + '\n' + '      '
+
+    K += ']'
+
+    to_pdf.updateObject(structtreeroot_xref, """
+<<
+""" + K + """
+  /Type /StructTreeRoot
+  /ParentTree %d 0 R
+>>
+""" % parenttree_xref)
+
+    #  TODO? /ClassMap 1006 0 R
+    #  TODO? /ParentTreeNextKey 198
+
+
+    # Update pages, add back xrefs
+    for idx, page in enumerate(to_pdf):
+        page_data = to_pdf.xrefObject(page.xref)
+        page_data = page_data[:-2]
+
+        page_data += """
+  /StructParents %d
+""" % idx
+
+        page_data += """
+  /CropBox [ 0 0 %.1f %.1f ]
+""" % (page.rect[2], page.rect[3])
+
+        page_data += """
+  /Rotate 0
+"""
+        page_data += """
+  /Tabs /S
+"""
+        page_data += '>>'
+        to_pdf.updateObject(page.xref, page_data)
+
+    catalogxref = to_pdf.PDFCatalog()
+    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    s = s[:-2]
+    s += """
+  /ViewerPreferences <<
+    /FitWindow true
+    /DisplayDocTitle true
+  >>
+"""
+    if language:
+        s += """
+  /Lang (%s)
+""" % language
+
+    s += """
+  /MarkInfo <<
+    /Marked true
+  >>
+"""
+    s += """
+  /StructTreeRoot %d 0 R
+""" % structtreeroot_xref
+
+    s += '>>'
+    to_pdf.updateObject(catalogxref, s)
+
+
+
 def write_metadata(from_pdf, to_pdf, extra_metadata):
     doc_md = from_pdf.metadata if from_pdf is not None else {}
 
@@ -595,6 +761,9 @@ if __name__ == '__main__':
     if args.scandata_file is not None:
         # XXX: we parse scandata twice now, let's not do that
         write_page_labels(outdoc, args.scandata_file)
+
+
+    write_basic_ua(outdoc, language=args.metadata_language)
 
     # 4. Write metadata
     extra_metadata = {}
