@@ -537,7 +537,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
 
         current_time = datetime.utcnow().isoformat(timespec='seconds') + '+00:00'
 
-        stream='''<?xpacket begin="..." id="W5M0MpCehiHzreSzNTczkc9d"?>
+        stream='''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
         <x:xmpmeta xmlns:x="adobe:ns:meta/">
           <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
             <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
