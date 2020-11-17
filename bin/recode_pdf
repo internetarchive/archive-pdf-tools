@@ -511,6 +511,8 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         doc_md['keywords'] = extra_metadata['url']
     if 'title' in extra_metadata:
         doc_md['title'] = extra_metadata['title']
+    if 'author' in extra_metadata:
+        doc_md['author'] = extra_metadata['author']
     if 'creator' in extra_metadata:
         doc_md['creator'] = extra_metadata['creator']
     if 'subject' in extra_metadata:
@@ -557,13 +559,16 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 </rdf:Alt>
               </dc:title>'''.format(title=extra_metadata.get('title'))
 
+        # "An entity responsible for making the resource."
+        # https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/creator
+        # So should be author...
         if extra_metadata.get('creator'):
             stream += '''
               <dc:creator>
                 <rdf:Seq>
-                  <rdf:li>{creator}</rdf:li>
+                  <rdf:li>{author}</rdf:li>
                 </rdf:Seq>
-              </dc:creator>'''.format(creator=extra_metadata.get('creator'))
+              </dc:creator>'''.format(author=extra_metadata.get('author'))
 
         # TODO: Support multiple languages here?
 
@@ -668,6 +673,8 @@ if __name__ == '__main__':
                         help='URL describing document, if any')
     parser.add_argument('--metadata-title', type=str, default=None,
                         help='Title of PDF document')
+    parser.add_argument('--metadata-author', type=str, default=None,
+                        help='Author of document')
     parser.add_argument('--metadata-creator', type=str, default=None,
                         help='Creator of PDF document')
     parser.add_argument('--metadata-language', type=str, default=None,
@@ -816,6 +823,8 @@ if __name__ == '__main__':
         extra_metadata['title'] = args.metadata_title
     if args.metadata_creator:
         extra_metadata['creator'] = args.metadata_creator
+    if args.metadata_author:
+        extra_metadata['author'] = args.metadata_author
     if args.metadata_language:
         extra_metadata['language'] = args.metadata_language
     if args.metadata_subject:
