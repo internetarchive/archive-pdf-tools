@@ -668,7 +668,10 @@ if __name__ == '__main__':
                         help='Creator of PDF document')
     parser.add_argument('--metadata-language', type=str, default=None,
                         nargs='+', action='extend',
-                        help='Language of PDF document, see RFC 3066')
+                        help='Language of PDF document, see RFC 3066. '
+                             'If multiple languages are specified, only the '
+                             'first is added to the PDF catalog, but all of '
+                             'them will end up in the XMP metadata')
     parser.add_argument('--metadata-subject', type=str, default=None,
                         help='Subjects')
     parser.add_argument('--metadata-creatortool', type=str, default=None,
@@ -794,7 +797,8 @@ if __name__ == '__main__':
         write_page_labels(outdoc, args.scandata_file)
 
 
-    write_basic_ua(outdoc, language=args.metadata_language)
+    lang_if_any = args.metadata_language[0] if args.metadata_language else None
+    write_basic_ua(outdoc, language=lang_if_any)
 
     # 4. Write metadata
     extra_metadata = {}
