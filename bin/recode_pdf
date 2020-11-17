@@ -530,11 +530,6 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         xml_bytes = from_pdf.xrefStream(xml_xref)
         to_pdf.setXmlMetadata(xml_bytes.decode('utf-8'))
     else:
-        # TODO: Update this and make sure it's all nice and correct
-        # TODO: Write/add:
-        # - Language bag
-        # - *link back* to archive.org item
-
         current_time = datetime.utcnow().isoformat(timespec='seconds') + '+00:00'
 
         stream='''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
@@ -546,22 +541,37 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
               <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
               <xmp:CreatorTool>{creatortool}</xmp:CreatorTool>
             </rdf:Description>
-            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''.format(creatortool=extra_metadata.get('creatortool', PRODUCER),
+           createdate=current_time, metadatadate=current_time,
+           modifydate=current_time)
+
+        if extra_metadata.get('title'):
+            stream += '''
               <dc:title>
                 <rdf:Alt>
                   <rdf:li xml:lang="x-default">{title}</rdf:li>
                 </rdf:Alt>
-              </dc:title>
+              </dc:title>'''.format(title=extra_metadata.get('title'))
+
+        if extra_metadata.get('creator'):
+            stream += '''
               <dc:creator>
                 <rdf:Seq>
                   <rdf:li>{creator}</rdf:li>
                 </rdf:Seq>
-              </dc:creator>
+              </dc:creator>'''.format(creator=extra_metadata.get('creator'))
+
+        # TODO: Support multiple languages here?
+
+        # Empty language field means unknown language
+        stream += '''
               <dc:language>
                 <rdf:Bag>
                   <rdf:li>{language}</rdf:li>
                 </rdf:Bag>
-              </dc:language>
+              </dc:language>'''.format(language=extra_metadata.get('language', ''))
+
+        stream += '''
             </rdf:Description>
             <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
               <pdfaid:part>3</pdfaid:part>
@@ -569,17 +579,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
             </rdf:Description>
           </rdf:RDF>
         </x:xmpmeta>
-        <?xpacket end="r"?>'''.format(
-                # XXX: We really just want to omit this metadata alltogether if it's
-                # not provided
-                title=extra_metadata.get('title', 'No title provided'),
-                creator=extra_metadata.get('creator', 'No creator provided'),
-                creatortool=extra_metadata.get('creatortool', 'No creator tool provided'),
-                # Empty language field means unknown language
-                language=extra_metadata.get('language', ''),
-                createdate=current_time,
-                metadatadate=current_time,
-                modifydate=current_time)
+        <?xpacket end="r"?>'''
 
         to_pdf.setXmlMetadata(stream)
 
