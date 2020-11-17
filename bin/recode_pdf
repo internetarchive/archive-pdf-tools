@@ -786,7 +786,13 @@ if __name__ == '__main__':
         print('mupdf warnings, if any:', repr(fitz.TOOLS.mupdf_warnings()))
     if VERBOSE:
         print('Saving PDF now')
+
+    t = time()
     outdoc.save(outfile, deflate=True, pretty=True)
+    save_time_ms = int((time() - t)*1000)
+    if reporter:
+        data = json.dumps({'time_to_save': {'time': save_time_ms}})
+        subprocess.check_output(reporter, input=data.encode('utf-8'))
 
     end_time = time()
     print('Processed %d pages at %.2f seconds/page' % (len(outdoc),
