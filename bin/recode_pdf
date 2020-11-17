@@ -13,6 +13,7 @@ import shutil
 import json
 from glob import glob
 from math import ceil
+import re
 
 from PIL import Image
 from PIL import Jpeg2KImagePlugin
@@ -584,6 +585,31 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         to_pdf.setXmlMetadata(stream)
 
 
+#  pymupdf inserts stuff like '/Author (none)' when the author is not provided.
+#  This is wrong. We'll file a bug, but let's first fix it here.
+def fixup_pymupdf_metadata(doc):
+    # Access to the Info xref is not in the API, so let's dig for it.
+    trailer_lines = outdoc.PDFTrailer().split('\n')
+    for line in trailer_lines:
+        if '  /Info ' in line:
+            s = line.replace('  /Info ', '')
+            info_xref = s[:s.find(' ')]
+            info_xref = int(info_xref)
+
+            s = doc.xrefObject(info_xref)
+
+            new_s = ''
+
+            for infoline in s.split('\n'):
+                if re.match('^.*\/[A-Za-z]+ \(none\)$', infoline):
+                    continue
+
+                new_s += infoline + '\n'
+
+            doc.updateObject(info_xref, new_s)
+
+            break
+
 
 if __name__ == '__main__':
     import argparse
@@ -817,6 +843,9 @@ if __name__ == '__main__':
     if args.metadata_creatortool:
         extra_metadata['creatortool'] = args.metadata_creatortool
     write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
+
+    print('Fixing up pymupdf metadata')
+    fixup_pymupdf_metadata(outdoc)
 
     # 5. Save
     if VERBOSE:
