@@ -557,13 +557,19 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
 
         # TODO: Support multiple languages here?
 
+        if extra_metadata.get('language'):
         # Empty language field means unknown language
-        stream += '''
+            stream += '''
               <dc:language>
-                <rdf:Bag>
-                  <rdf:li>{language}</rdf:li>
+                <rdf:Bag>'''
+
+            for language in extra_metadata.get('language', []):
+                stream += '''
+                  <rdf:li>{language}</rdf:li>'''.format(language=language)
+
+            stream += '''
                 </rdf:Bag>
-              </dc:language>'''.format(language=extra_metadata.get('language', ''))
+              </dc:language>'''
 
         stream += '''
             </rdf:Description>
@@ -661,6 +667,7 @@ if __name__ == '__main__':
     parser.add_argument('--metadata-creator', type=str, default=None,
                         help='Creator of PDF document')
     parser.add_argument('--metadata-language', type=str, default=None,
+                        nargs='+', action='extend',
                         help='Language of PDF document, see RFC 3066')
     parser.add_argument('--metadata-subject', type=str, default=None,
                         help='Subjects')
