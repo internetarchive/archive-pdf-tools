@@ -126,8 +126,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         image_zip=None,
         dpi=None, bg_slope=None, fg_slope=None,
         skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
-        denoise_mask=None,
-        reporter=None):
+        denoise_mask=None, reporter=None,
+        hq_pages=None, hq_bg_slope=None, hq_fg_slope=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -202,16 +202,20 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 image.load()
                 os.remove(tiff_in)
 
+
+        render_hq = hq_pages[idx]
+
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(image,
                                                   hocr_word_data,
-                                                  bg_downsample=bg_downsample,
+                                                  bg_downsample=None if render_hq else bg_downsample,
                                                   denoise_mask=denoise_mask)
         if from_pdf is not None:
             remove(tiff_in)
 
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
-                bg_slope=bg_slope, fg_slope=fg_slope,
+                bg_slope=hq_bg_slope if render_hq else bg_slope,
+                fg_slope=hq_fg_slope if render_hq else fg_slope,
                 tmp_dir=TMP_DIR, jbig2=jbig2)
 
         if img_dir is not None:
@@ -634,10 +638,10 @@ if __name__ == '__main__':
                         help='Stop after N pages (default is no stop)')
     parser.add_argument('--bg-slope', default=47000, type=int,
                         help='Slope for background layer.'
-                             ' Default is 0.1')
+                             ' Default is 47000')
     parser.add_argument('--fg-slope', default=49000, type=int,
                         help='Slope for foreground layer.'
-                             ' Default is 0.05')
+                             ' Default is 49000')
     parser.add_argument('--bg-downsample', default=None, type=int,
                         help='Downsample background by factor.'
                              ' Default is no scaling')
@@ -645,6 +649,21 @@ if __name__ == '__main__':
                         help='Denoise mask when MRC algorithm thinks it needs'
                              ' to denoise - which is not always.'
                              ' Default is off', action='store_true')
+    parser.add_argument('--hq-pages', type=str, default=None,
+                        help='Pages to render in higher quality, provided '
+                             'as comma separate values, negative indexing is '
+                             'allowed, e.g.: --hq-pages \'1,2,3,4,-4,-3,-2,-1\''
+                             ' will make the first four and last four pages '
+                             'of a higher quality. Pages marked as higher '
+                             'quality will not get downsampled and might use '
+                             'different slope values (see --hq-bg-slope '
+                             'and --hq-fg-slope)')
+    parser.add_argument('--hq-bg-slope', default=47000, type=int,
+                        help='High quality slope for background layer.'
+                             ' Default is 47000')
+    parser.add_argument('--hq-fg-slope', default=47000, type=int,
+                        help='High quality slope for foreground layer.'
+                             ' Default is 47000')
     parser.add_argument('--metadata-url', type=str, default=None,
                         help='URL describing document, if any')
     parser.add_argument('--metadata-title', type=str, default=None,
@@ -733,6 +752,27 @@ if __name__ == '__main__':
     # We open the generated file but do not modify it in place
     outdoc = fitz.open(tess_tmp_path)
 
+    HQ_PAGES = [False for x in range(outdoc.pageCount)]
+    if args.hq_pages is not None:
+        index_range = map(int, args.hq_pages.split(','))
+        for i in index_range:
+            # We want 0-indexed, not 1-indexed, but not negative numbers we want
+            # to remain 1-indexed.
+            if i > 0:
+                i = i - 1
+
+            if abs(i) > len(HQ_PAGES):
+                # Page out of range, silently ignore for automation purposes.
+                # We don't want scripts that call out tool to worry about how
+                # many a PDF has exactly. E.g. if 1,2,3,4,-4,-3,-2,-1 is passed,
+                # and a PDF has only three pages, let's just set them all to HQ
+                # and not complain about 4 and -4 being out of range.
+                continue
+
+            # Mark page as HQ
+            HQ_PAGES[i] = True
+
+
     if VERBOSE:
         print('Converting with image mode:', args.image_mode)
     if args.image_mode == 2:
@@ -748,7 +788,10 @@ if __name__ == '__main__':
                           jbig2=args.jbig2,
                           bg_downsample=args.bg_downsample,
                           denoise_mask=args.denoise_mask,
-                          reporter=reporter)
+                          reporter=reporter,
+                          hq_pages=HQ_PAGES,
+                          hq_bg_slope=args.hq_bg_slope,
+                          hq_fg_slope=args.hq_fg_slope)
     elif args.image_mode in (0, 1):
         insert_images(in_pdf, outdoc, mode=args.image_mode)
     elif args.image_mode == 3:
