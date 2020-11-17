@@ -252,8 +252,6 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
                     if sigma_est < sigma_est_i:
                         pass
-                    elif abs(sigma_est_i - sigma_est) < 0.05:
-                        thres |= thres_i
                     elif sigma_est_i < sigma_est:
                         thres = thres_i
 
