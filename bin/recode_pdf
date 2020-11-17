@@ -174,17 +174,19 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Do not subtract skipped pages here
             imgfile = image_files[idx+skipped_pages]
 
-            fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=TMP_DIR)
-            os.close(fd)
-            os.remove(tiff_in)
-            subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                tiff_in], stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL)
+            if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
+                fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=TMP_DIR)
+                os.close(fd)
+                os.remove(tiff_in)
+                subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                    tiff_in], stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL)
 
-            image = Image.open(tiff_in)
-            image.load()
-            os.remove(tiff_in)
-
+                image = Image.open(tiff_in)
+                image.load()
+                os.remove(tiff_in)
+            else:
+                image = Image.open(imgfile)
 
         render_hq = hq_pages[idx]
 
