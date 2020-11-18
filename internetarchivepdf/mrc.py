@@ -235,31 +235,26 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
                 wordimg = img.crop(word['bbox'])
                 thres = threshold_image2(wordimg)
+                sigma_est = np.mean(estimate_sigma(thres))
 
                 ones = np.count_nonzero(thres)
-                zeroes = np.count_nonzero(np.invert(thres))
-
-                # TODO: use multichannel here? I don't think that makes sense
-                sigma_est = np.mean(estimate_sigma(thres))
+                #zeroes = np.count_nonzero(np.invert(thres))
 
                 if sigma_est > 0.1:
                     # Invert. (TODO: we should do this in a more efficient
                     # manner)
                     thres_i = threshold_image2(ImageOps.invert(wordimg))
-
-                    # TODO: use multichannel here? I don't think that makes sense
                     sigma_est_i = np.mean(estimate_sigma(thres_i))
+
+                    ones_i = np.count_nonzero(thres_i)
+                    #zeroes_i = np.count_nonzero(np.invert(thres_i))
 
                     if sigma_est < sigma_est_i:
                         pass
-                    elif sigma_est_i < sigma_est:
-                        thres = thres_i
+                    elif sigma_est_i < sigma_est and ones_i < ones:
+                        thres = thres_i | thres
 
                 mask_arr[left:right, top:bottom] = thres
-
-                # TODO: Set thres values in array_mask
-
-                intbox = [int(x) for x in word['bbox']]
 
     time_data.append(('hocr_mask_gen', time() - t))
 
