@@ -504,7 +504,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
     if 'subject' in extra_metadata:
         doc_md['subject'] = extra_metadata['subject']
 
-    current_time = 'D:' + datetime.utcnow().isoformat(timespec='seconds') + '+00\':00\''
+    current_time = 'D:' + datetime.utcnow().strftime('%Y%m%d%H%M%SZ')
     if from_pdf is not None:
         doc_md['creationDate'] = from_pdf.metadata['creationDate']
     else:
@@ -522,7 +522,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         xml_bytes = from_pdf.xrefStream(xml_xref)
         to_pdf.setXmlMetadata(xml_bytes.decode('utf-8'))
     else:
-        current_time = datetime.utcnow().isoformat(timespec='seconds') + '+00:00'
+        current_time = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
 
         stream='''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
         <x:xmpmeta xmlns:x="adobe:ns:meta/">
