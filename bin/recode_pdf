@@ -779,7 +779,7 @@ if __name__ == '__main__':
             if i > 0:
                 i = i - 1
 
-            if abs(i) > len(HQ_PAGES):
+            if abs(i) >= len(HQ_PAGES):
                 # Page out of range, silently ignore for automation purposes.
                 # We don't want scripts that call out tool to worry about how
                 # many a PDF has exactly. E.g. if 1,2,3,4,-4,-3,-2,-1 is passed,
