@@ -2,7 +2,13 @@
 # at commit 2d6f38eebf9a14d9fbe65d785f0d7bd898ff46cb
 #
 # Please look at the code in there for documentation, etc.
-# XXX: Code is probably Apache Licensed as well
+#
+# License for this file is Apache 2.0:
+#
+#
+#          Apache License
+#    Version 2.0, January 2004
+# http://www.apache.org/licenses/
 
 import pkg_resources
 
