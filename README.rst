@@ -73,6 +73,37 @@ Planned features
 * Support for optional denoising of masks to further improve compression
 * Addition of a second set of fonts in the PDFs, so that hidden selected text
   also renders the original glyphs.
+* Faster partial blur
+* cupy (numpy/scipy on GPU) support
+
+
+MRC
+===
+
+The goal of Mixed Raster Content compression is to decompose the image into a
+background, foreground and mask. The background should contain components that
+are not of particular interest, whereas the foreground would contain all
+glyphs/text on a page, as well as the lines and edges of various drawings or
+images. The mask is a 1-bit image which has the value '1' when a pixel is part
+of the foreground.
+
+This decomposition can then be used to compress the different components
+individually, applying much higher compression to specific components, usually
+the background, which can be downscaled as well. The foreground can be quite
+compressed as well, since it mostly just needs to contain the approximate
+colours of the text and other lines - any artifacts introduced during the
+foreground compression (e.g. ugly artifact around text borders) are removed by
+overlaying the mask component of the image, which is losslessly compressed
+(typically using either JBIG2 or CCITT).
+
+In a PDF, this usually means the background image is inserted into a page,
+followed by the foreground image, which uses the mask as it's alpha layer.
+
+
+MRC Examples
+------------
+
+(For images, see the ``doc`` branch of this repository)
 
 
 License
