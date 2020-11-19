@@ -61,6 +61,9 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
     last_time = time()
     reporting_page_count = 0
 
+    if VERBOSE:
+        print('Starting page generation at', datetime.utcnow().isoformat())
+
     for idx, hocr_page in enumerate(hocr_iter):
         w, h = hocr_page_get_dimensions(hocr_page)
 
@@ -84,8 +87,17 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             # Do not subtract skipped pages here
             imgfile = image_files[idx]
 
-            img = Image.open(imgfile)
-            imwidth, imheight = img.size
+            if imgfile.endswith('.jp2'):
+                # Pillow reads the entire file for JPEG2000 images - just to get
+                # the image size!
+                fd = open(imgfile, 'rb')
+                size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
+                fd.close()
+                imwidth, imheight = size
+            else:
+                img = Image.open(imgfile)
+                imwidth, imheight = img.size
+                del img
 
             page_width = imwidth / (dpi / 72)
 
@@ -96,11 +108,15 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             width = page_width
             height = imheight * scaler
 
-
         word_data = hocr_page_to_word_data(hocr_page, scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi)
 
         reporting_page_count += 1
+
+
+    if VERBOSE:
+        print('Finished page generation at', datetime.utcnow().isoformat())
+        print('Creating text pages took %.4f seconds' % (time() - last_time))
 
 
     if reporter and reporting_page_count != 0:
