@@ -13,6 +13,7 @@ import shutil
 import json
 from glob import glob
 from math import ceil
+from xml.sax.saxutils import escape as xmlescape
 import re
 
 from PIL import Image
@@ -533,7 +534,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
               <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
               <xmp:CreatorTool>{creatortool}</xmp:CreatorTool>
             </rdf:Description>
-            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''.format(creatortool=extra_metadata.get('creatortool', PRODUCER),
+            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''.format(creatortool=xmlescape(extra_metadata.get('creatortool', PRODUCER)),
            createdate=current_time, metadatadate=current_time,
            modifydate=current_time)
 
@@ -543,7 +544,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 <rdf:Alt>
                   <rdf:li xml:lang="x-default">{title}</rdf:li>
                 </rdf:Alt>
-              </dc:title>'''.format(title=extra_metadata.get('title'))
+              </dc:title>'''.format(title=xmlescape(extra_metadata.get('title')))
 
         # "An entity responsible for making the resource."
         # https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/creator
@@ -554,7 +555,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
                 <rdf:Seq>
                   <rdf:li>{author}</rdf:li>
                 </rdf:Seq>
-              </dc:creator>'''.format(author=extra_metadata.get('author'))
+              </dc:creator>'''.format(author=xmlescape(extra_metadata.get('author')))
 
         # TODO: Support multiple languages here?
 
@@ -566,7 +567,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
 
             for language in extra_metadata.get('language', []):
                 stream += '''
-                  <rdf:li>{language}</rdf:li>'''.format(language=language)
+                  <rdf:li>{language}</rdf:li>'''.format(language=xmlescape(language))
 
             stream += '''
                 </rdf:Bag>
