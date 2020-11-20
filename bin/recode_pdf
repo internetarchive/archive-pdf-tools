@@ -565,7 +565,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         # "An entity responsible for making the resource."
         # https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/creator
         # So should be author...
-        if extra_metadata.get('creator'):
+        if extra_metadata.get('author'):
             stream += '''
               <dc:creator>
                 <rdf:Seq>
