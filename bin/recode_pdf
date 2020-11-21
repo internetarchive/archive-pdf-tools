@@ -265,7 +265,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         current_time = time()
         ms = int(((current_time - last_time) / reporting_page_count) * 1000)
 
-        data = json.dumps({'text_pages': {'count': reporting_page_count,
+        data = json.dumps({'compress_pages': {'count': reporting_page_count,
                                          'time-per': ms}})
         subprocess.check_output(reporter, input=data.encode('utf-8'))
 
