@@ -345,8 +345,8 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
         fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2', dir=tmp_dir)
         close(fd)
 
-    img = Image.fromarray(mask)
-    img.save(mask_img_png, compress_level=0) # XXX: Check compress_level vs compress
+    maskimg = Image.fromarray(mask)
+    maskimg.save(mask_img_png, compress_level=0) # XXX: Check compress_level vs compress
 
     if jbig2:
         out = subprocess.check_output(['jbig2', mask_img_png])
@@ -384,7 +384,15 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     fg_img = Image.fromarray(np_fg)
     fg_img.save(fg_img_tiff)
 
-    subprocess.check_call(['convert', mask_img_png, mask_img_png + '.pgm'])
+    # XXX: kdu_expand wants the mask as 8 bit, not as one bit, which is the
+    # Pillow default, but with this hack I think we can force it to write 8
+    # bit without a conversion. I'd inclined to use it, but don't want this
+    # to silently break later on, so using .convert('L') for now.
+    #maskimg.mode = 'L'
+    #maskimg.save(mask_img_png + '.pgm')
+    #maskimg.mode = '1'
+    maskimg.convert('L').save(mask_img_png + '.pgm')
+
     subprocess.check_call([KDU_COMPRESS,
         '-num_threads', '0',
         '-i', fg_img_tiff, '-o', fg_img_jp2,
