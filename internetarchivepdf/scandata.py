@@ -39,3 +39,27 @@ def scandata_xml_get_page_numbers(xml_file):
         res.append(pno)
 
     return res
+
+
+def scandata_xml_get_dpi(xml_file):
+    scandata = xmltodict.parse(open(xml_file, 'rb'))
+
+    res = []
+
+    pages = scandata['book']['pageData']['page']
+
+    # If there is just one page, pages is not a list.
+    if not isinstance(pages, list):
+        pages = [pages]
+    for idx in range(len(pages)):
+        try:
+            add_to_access_format = pages[idx]['addToAccessFormats']
+            if add_to_access_format == 'false':
+                continue
+        except KeyError:
+            pass
+
+        ppi = pages[idx].get('ppi', None)
+        res.append(ppi)
+
+    return res

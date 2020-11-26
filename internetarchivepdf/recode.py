@@ -27,13 +27,14 @@ from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
-        scandata_xml_get_page_numbers
+        scandata_xml_get_page_numbers, scandata_xml_get_dpi
 from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
 
 
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
-        image_files=None, dpi=None, skip_pages=None, reporter=None,
+        image_files=None, dpi=None, skip_pages=None, dpi_pages=None,
+        reporter=None,
         verbose=False, stop_after=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
@@ -83,7 +84,14 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 imwidth, imheight = img.size
                 del img
 
-            page_width = imwidth / (dpi / 72)
+            page_dpi = dpi
+            if dpi_pages is not None:
+                try:
+                    page_dpi = int(dpi_pages[idx - skipped_pages])
+                except:
+                    pass  # Keep item-wide dpi
+
+            page_width = imwidth / (page_dpi / 72)
 
             scaler = page_width / imwidth
 
@@ -119,7 +127,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
 
 
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
-        dpi=None, bg_slope=None, fg_slope=None,
+        bg_slope=None, fg_slope=None,
         skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
@@ -667,6 +675,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     skip_pages = []
     if scandata_file is not None:
         skip_pages = scandata_xml_get_skip_pages(scandata_file)
+        dpi_pages = scandata_xml_get_dpi(scandata_file)
 
     # XXX: Maybe use a buffer, since the file is typically quite small
     fd, tess_tmp_path = mkstemp(prefix='pdfrenderer', suffix='.pdf', dir=tmp_dir)
@@ -678,7 +687,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     # 1. Create text-only PDF from hOCR first, but honour page sizes of in_pdf
     create_tess_textonly_pdf(hocr_file, tess_tmp_path, in_pdf=in_pdf,
             image_files=image_files, dpi=dpi,
-            skip_pages=skip_pages, reporter=reporter,
+            skip_pages=skip_pages, dpi_pages=dpi_pages,
+            reporter=reporter,
             verbose=verbose, stop_after=stop)
 
     if verbose:
@@ -714,7 +724,6 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         insert_images_mrc(outdoc, hocr_file,
                           from_pdf=in_pdf,
                           image_files=image_files,
-                          dpi=dpi,
                           bg_slope=bg_slope,
                           fg_slope=fg_slope,
                           skip_pages=skip_pages,
