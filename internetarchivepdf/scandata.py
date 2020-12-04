@@ -41,7 +41,7 @@ def scandata_xml_get_page_numbers(xml_file):
     return res
 
 
-def scandata_xml_get_dpi(xml_file):
+def scandata_xml_get_dpi_per_page(xml_file):
     scandata = xmltodict.parse(open(xml_file, 'rb'))
 
     res = []
@@ -63,3 +63,17 @@ def scandata_xml_get_dpi(xml_file):
         res.append(ppi)
 
     return res
+
+
+def scandata_xml_get_document_dpi(xml_file):
+    scandata = xmltodict.parse(open(xml_file, 'rb'))
+
+    doc_ppi = scandata['book']['bookData'].get('ppi', None)
+
+    if doc_ppi is not None:
+        try:
+            doc_ppi = int(doc_ppi)
+        except (ValueError):
+            return None
+
+    return doc_ppi

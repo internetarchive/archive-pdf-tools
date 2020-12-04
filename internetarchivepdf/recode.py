@@ -27,9 +27,35 @@ from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
-        scandata_xml_get_page_numbers, scandata_xml_get_dpi
+        scandata_xml_get_page_numbers, scandata_xml_get_dpi_per_page, \
+        scandata_xml_get_document_dpi
 from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
+
+
+def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 600]):
+    """
+    Guesstimate DPI for a given image.
+
+    Args:
+
+    * w (int): width of the image
+    * h (int): height of the image
+    * expected_format (tuple): (width_inch, height_inch) of expected document,
+                               defaults to european A4.
+    * round_to (list of int): List of acceptable DPI values.
+                              Defaults to (72, 96, 150, 300, 600)
+
+    Returns an int which is the best matching DPI picked from round_to.
+    """
+    w_dpi = w / expected_format[0]
+    h_dpi = h / expected_format[1]
+    diffs = []
+    for dpi in round_to:
+        diff = abs(w_dpi - dpi) + abs(h_dpi - dpi)
+        diffs.append((dpi, diff))
+    sorted_diffs = sorted(diffs, key=lambda x: x[1])
+    return sorted_diffs[0][0]
 
 
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
@@ -89,7 +115,16 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 try:
                     page_dpi = int(dpi_pages[idx - skipped_pages])
                 except:
-                    pass  # Keep item-wide dpi
+                    pass  # Keep item-wide dpi if available
+
+            # Both document level dpi is not available and per-page dpi is not
+            # available, let's guesstimate
+            # Assume european A4 (8.27",11.69") and guess DPI
+            # to be one-of (72, 96, 150, 300, 600)
+            if page_dpi is None:
+                page_dpi = guess_dpi(imwidth, imheight,
+                                     expected_format=(8.27, 11.69),
+                                     round_to=(72, 96, 150, 300, 600))
 
             page_width = imwidth / (page_dpi / 72)
 
@@ -624,8 +659,6 @@ def fixup_pymupdf_metadata(doc):
             break
 
 
-
-# TODO: Per page-dpi
 # TODO: Document these options (like in bin/recode_pdf)
 def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         scandata_file=None, out_pdf=None, out_dir=None,
@@ -640,6 +673,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         metadata_url=None, metadata_title=None, metadata_author=None,
         metadata_creator=None, metadata_language=None,
         metadata_subject=None, metadata_creatortool=None):
+    # TODO: document that the scandata document dpi will override the dpi arg
     # TODO: Take hq-pages and reporter arg and change format (as lib call we
     # don't want to pass that as one string, I guess?)
 
@@ -670,12 +704,19 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
 
     start_time = time()
 
+    scandata_doc_dpi = None
+
     # Figure out if we have scandata, and figure out if we want to skip pages
     # based on scandata.
     skip_pages = []
     if scandata_file is not None:
         skip_pages = scandata_xml_get_skip_pages(scandata_file)
-        dpi_pages = scandata_xml_get_dpi(scandata_file)
+        dpi_pages = scandata_xml_get_dpi_per_page(scandata_file)
+        scandata_doc_dpi = scandata_xml_get_document_dpi(scandata_file)
+
+        if scandata_doc_dpi is not None:
+            # Let's prefer the DPI in the scandata file over the provided DPI
+            dpi = scandata_doc_dpi
 
     # XXX: Maybe use a buffer, since the file is typically quite small
     fd, tess_tmp_path = mkstemp(prefix='pdfrenderer', suffix='.pdf', dir=tmp_dir)
