@@ -7,6 +7,8 @@ from tempfile import mkstemp
 import subprocess
 from time import time
 
+import warnings
+
 from PIL import Image, ImageEnhance, ImageOps
 from skimage.filters import threshold_local, threshold_otsu, threshold_sauvola
 from skimage.restoration import denoise_tv_bregman, estimate_sigma
@@ -34,6 +36,12 @@ improve background compression using JPEG2000 ROI
 KDU_COMPRESS = 'kdu_compress'
 KDU_EXPAND = 'kdu_expand'
 
+
+# skimage throws useless UserWarnings in various functions
+def mean_estimate_sigma(arr):
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return np.mean(estimate_sigma(arr))
 
 def invert_mask(mask):
     return mask ^ np.ones(mask.shape, dtype=bool)
@@ -235,7 +243,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
                 wordimg = img.crop(word['bbox'])
                 thres = threshold_image2(wordimg)
-                sigma_est = np.mean(estimate_sigma(thres))
+                sigma_est = mean_estimate_sigma(thres)
 
                 ones = np.count_nonzero(thres)
                 #zeroes = np.count_nonzero(np.invert(thres))
@@ -244,7 +252,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
                     # Invert. (TODO: we should do this in a more efficient
                     # manner)
                     thres_i = threshold_image2(ImageOps.invert(wordimg))
-                    sigma_est_i = np.mean(estimate_sigma(thres_i))
+                    sigma_est_i = mean_estimate_sigma(thres_i)
 
                     ones_i = np.count_nonzero(thres_i)
                     #zeroes_i = np.count_nonzero(np.invert(thres_i))
@@ -267,7 +275,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
         # sharp as possible.
 
         t = time()
-        sigma_est = np.mean(estimate_sigma(imgf))
+        sigma_est = mean_estimate_sigma(imgf)
         time_data.append(('est_1', time() - t))
         if sigma_est > 1.0:
             t = time()
@@ -275,7 +283,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
             time_data.append(('blur_1', time() - t))
 
             #t = time()
-            #n_sigma_est = np.mean(estimate_sigma(imgf))
+            #n_sigma_est = mean_estimate_sigma(imgf)
             #time_data.append(('est_2', time() - t))
             #if sigma_est > 1.0 and n_sigma_est > 1.0:
             #    t = time()
@@ -289,7 +297,7 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
         if denoise_mask is not None and denoise_mask:
             t = time()
-            sigma_est = np.mean(estimate_sigma(thres_arr))
+            sigma_est = mean_estimate_sigma(thres_arr)
             time_data.append(('est_3', time() - t))
 
             if sigma_est > 0.1:
