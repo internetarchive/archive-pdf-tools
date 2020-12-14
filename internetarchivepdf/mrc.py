@@ -218,14 +218,13 @@ def create_mrc_components(image):
 
 
 def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
-                               denoise_mask=None):
-    time_data = []
-
+                               denoise_mask=None, timing_data=None):
     img = image
     if image.mode != 'L':
         t = time()
         img = image.convert('L')
-        time_data.append(('grey_conversion', time() - t))
+        if timing_data is not None:
+            timing_data.append(('grey_conversion', time() - t))
 
     image_mask = Image.new('1', image.size)
     mask_arr = np.array(image_mask)
@@ -264,7 +263,8 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
                 mask_arr[left:right, top:bottom] = thres
 
-    time_data.append(('hocr_mask_gen', time() - t))
+    if timing_data is not None:
+        timing_data.append(('hocr_mask_gen', time() - t))
 
     image_arr = np.array(image)
 
@@ -276,11 +276,13 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
         t = time()
         sigma_est = mean_estimate_sigma(imgf)
-        time_data.append(('est_1', time() - t))
+        if timing_data is not None:
+            timing_data.append(('est_1', time() - t))
         if sigma_est > 1.0:
             t = time()
             imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
-            time_data.append(('blur_1', time() - t))
+            if timing_data is not None:
+                timing_data.append(('blur_1', time() - t))
 
             #t = time()
             #n_sigma_est = mean_estimate_sigma(imgf)
@@ -293,17 +295,20 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
         t = time()
         thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
-        time_data.append(('threshold', time() - t))
+        if timing_data is not None:
+            timing_data.append(('threshold', time() - t))
 
         if denoise_mask is not None and denoise_mask:
             t = time()
             sigma_est = mean_estimate_sigma(thres_arr)
-            time_data.append(('est_3', time() - t))
+            if timing_data is not None:
+                timing_data.append(('est_3', time() - t))
 
             if sigma_est > 0.1:
                 t = time()
                 thres_arr = denoise_bregman(thres_arr)
-                time_data.append(('denoise', time() - t))
+                if timing_data is not None:
+                    timing_data.append(('denoise', time() - t))
 
 
         thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
@@ -318,7 +323,8 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
     # back our original foreground pixels in the blurred image.
     foreground_arr = partial_blur(mask_arr, image_arr, sigma=3,
             mode=image.mode)
-    time_data.append(('fg_partial_blur', time() - t))
+    if timing_data is not None:
+        timing_data.append(('fg_partial_blur', time() - t))
 
     t = time()
     # Take background pixels and stuff them into our foreground pixels, then
@@ -326,7 +332,8 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
     # This really only needs to touch pixels where mask_inv = 0.
     image_arr = partial_blur(mask_inv, image_arr, sigma=3,
                              mode=image.mode)
-    time_data.append(('bg_partial_blur', time() - t))
+    if timing_data is not None:
+        timing_data.append(('bg_partial_blur', time() - t))
 
     if bg_downsample is not None:
         t = time()
@@ -334,11 +341,8 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
         w, h = image2.size
         image2.thumbnail((w/bg_downsample, h/bg_downsample))
         image_arr = np.array(image2)
-        time_data.append(('bg_downsample', time() - t))
-
-    for v in time_data:
-        print('%s: %.4fs ' % (v[0], v[1]), end='')
-    print('')
+        if timing_data is not None:
+            timing_data.append(('bg_downsample', time() - t))
 
     return mask_arr, image_arr, foreground_arr
 

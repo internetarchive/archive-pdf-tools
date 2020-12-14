@@ -204,6 +204,35 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
     fp.close()
 
 
+def get_timing_summary(timing_data):
+    sums = {}
+
+    # We expect this to always happen per page
+    fg_partial_blur_c = 0
+
+    for v in timing_data:
+        key = v[0]
+        val = v[1]
+
+        if key == 'fg_partial_blur':
+            fg_partial_blur_c += 1
+
+        if key not in sums:
+            sums[key] = 0.
+
+        sums[key] += val
+
+    for k in sums.keys():
+        sums[k] = sums[k] / fg_partial_blur_c
+
+    for k in sums.keys():
+        # For statsd, in ms
+        sums[k] = int(sums[k] * 1000)
+
+    return sums
+
+
+
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         bg_slope=None, fg_slope=None,
         skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
@@ -216,6 +245,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
     skipped_pages = 0
 
     last_time = time()
+    timing_data = []
     reporting_page_count = 0
 
     #for idx, page in enumerate(to_pdf):
@@ -284,7 +314,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         mask, bg, fg = create_mrc_hocr_components(image,
                                                   hocr_word_data,
                                                   bg_downsample=None if render_hq else bg_downsample,
-                                                  denoise_mask=denoise_mask)
+                                                  denoise_mask=denoise_mask,
+                                                  timing_data=timing_data)
         if from_pdf is not None:
             remove(tiff_in)
 
@@ -319,12 +350,16 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             print('Processed %d PDF pages.' % idx)
             sys.stdout.flush()
 
+            timing_sum = get_timing_summary(timing_data)
+            timing_data = []
+
             if reporter:
                 current_time = time()
                 ms = int(((current_time - last_time) / reporting_page_count) * 1000)
 
                 data = json.dumps({'compress_pages': {'count': reporting_page_count,
-                                                 'time-per': ms}})
+                                                 'time-per': ms},
+                                   'page_time_breakdown': timing_sum})
                 subprocess.check_output(reporter, input=data.encode('utf-8'))
 
                 # Reset chunk timer
@@ -337,8 +372,11 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         current_time = time()
         ms = int(((current_time - last_time) / reporting_page_count) * 1000)
 
+        timing_sum = get_timing_summary(timing_data)
+
         data = json.dumps({'compress_pages': {'count': reporting_page_count,
-                                         'time-per': ms}})
+                                         'time-per': ms},
+                           'page_time_breakdown': timing_sum})
         subprocess.check_output(reporter, input=data.encode('utf-8'))
 
 
