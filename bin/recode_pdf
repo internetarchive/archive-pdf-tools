@@ -110,7 +110,7 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
-    recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
+    res = recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
            args.scandata_file, args.out_pdf, args.out_dir,
            args.reporter,
            args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
@@ -123,3 +123,8 @@ if __name__ == '__main__':
            args.metadata_url, args.metadata_title, args.metadata_author,
            args.metadata_creator, args.metadata_language,
            args.metadata_subject, args.metadata_creatortool)
+
+    errors = res['errors']
+    if len(errors) > 0:
+        for error in errors:
+            print('Encountered runtime error:', error)

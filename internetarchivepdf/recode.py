@@ -33,6 +33,15 @@ from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
 
 
+PDFA_MIN_UNITS = 3
+PDFA_MAX_UNITS = 14400
+
+RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE = 'invalid-page-size'
+
+RECODE_RUNTIME_WARNINGS = {
+    RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
+}
+
 def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 600]):
     """
     Guesstimate DPI for a given image.
@@ -61,7 +70,8 @@ def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 6
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
         image_files=None, dpi=None, skip_pages=None, dpi_pages=None,
         reporter=None,
-        verbose=False, stop_after=None):
+        verbose=False, stop_after=None,
+        errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     render = TessPDFRenderer()
@@ -111,9 +121,12 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 del img
 
             page_dpi = dpi
+            per_page_dpi = None
+
             if dpi_pages is not None:
                 try:
-                    page_dpi = int(dpi_pages[idx - skipped_pages])
+                    per_page_dpi = int(dpi_pages[idx - skipped_pages])
+                    page_dpi = per_page_dpi
                 except:
                     pass  # Keep item-wide dpi if available
 
@@ -127,6 +140,36 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                                      round_to=(72, 96, 150, 300, 600))
 
             page_width = imwidth / (page_dpi / 72)
+            if page_width <= PDFA_MIN_UNITS or page_width >= PDFA_MAX_UNITS:
+                if verbose:
+                    print('Page size invalid with current image size and dpi.')
+                    print('Image size: %d, %d. DPI: %d' % (imwidth, imheight,
+                                                           page_dpi))
+
+                # First let's try without per_page_dpi, is avail, then try to
+                # guess the page dpi, if that also fails, then set to min
+                # or max allowed size
+                if per_page_dpi is not None and dpi:
+                    if verbose:
+                        print('Trying document level dpi:', dpi)
+                    page_width = imwidth / (dpi / 72)
+
+                # If that didn't work, guess
+                if page_width <= PDFA_MIN_UNITS or page_width >= PDFA_MAX_UNITS:
+                    page_dpi = guess_dpi(imwidth, imheight,
+                                         expected_format=(8.27, 11.69),
+                                         round_to=(72, 96, 150, 300, 600))
+                    if verbose:
+                        print('Guessing DPI:', dpi)
+                    page_width = imwidth / (page_dpi / 72)
+
+                # If even guessing fails, let's hard fail still for now
+                if page_width <= PDFA_MIN_UNITS or page_width >= PDFA_MAX_UNITS:
+                    raise ValueError('Cannot find a fitting page boundary')
+
+                # Add warning/error
+                if errors is not None:
+                    errors.add(RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE)
 
             scaler = page_width / imwidth
 
@@ -677,6 +720,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     # TODO: Take hq-pages and reporter arg and change format (as lib call we
     # don't want to pass that as one string, I guess?)
 
+    errors = set()
+
     in_pdf = None
     if from_pdf:
         in_pdf = fitz.open(from_pdf)
@@ -730,7 +775,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
             image_files=image_files, dpi=dpi,
             skip_pages=skip_pages, dpi_pages=dpi_pages,
             reporter=reporter,
-            verbose=verbose, stop_after=stop)
+            verbose=verbose, stop_after=stop,
+            errors=errors)
 
     if verbose:
         print('Inserting (and compressing) images')
@@ -856,8 +902,12 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         oldsize = bytesum
 
     newsize = os.path.getsize(out_pdf)
+    compression_ratio  = oldsize / newsize
     if verbose:
-        print('Compression ratio: %f' % (oldsize / newsize))
+        print('Compression ratio: %f' % (compression_ratio))
 
     # 5. Remove leftover files
     remove(tess_tmp_path)
+
+    return {'errors': errors,
+            'compression_ratio': compression_ratio}
