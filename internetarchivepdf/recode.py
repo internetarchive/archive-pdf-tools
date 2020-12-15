@@ -18,6 +18,7 @@ import re
 
 from PIL import Image
 from PIL import Jpeg2KImagePlugin
+import numpy as np
 import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
@@ -65,6 +66,50 @@ def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 6
         diffs.append((dpi, diff))
     sorted_diffs = sorted(diffs, key=lambda x: x[1])
     return sorted_diffs[0][0]
+
+
+perc2val = lambda x: (x*255)/100
+
+def level_arr(arr, minv=0, maxv=255):
+    interval = (maxv/255.) - (minv/255.)
+    arr_zero = arr < minv
+    arr_max = arr > maxv
+    arr[::] = ((arr[::] - minv) / interval)
+    arr[arr_zero] = 0
+    arr[arr_max] = 255
+    return arr
+
+
+# Straight forward port of color2Gray.sh script
+# We might be able to do better, but there are only a few users of this script
+# in the archive.org currently, so more time has not been invested in finding
+# alternative or better ways.
+def special_gray_convert(imd):
+    components = ('r', 'g', 'b')
+
+    d = {}
+    for i, k in enumerate(components):
+        for fun in ['min', 'max', 'mean', 'std']:
+            d[k + '_' + fun] = getattr(np, fun)(imd[:,:,i]) / 255.
+
+    bright_adjust = round(d['r_mean'] * d['g_mean'] * d['b_mean'] /
+                    (d['b_max']*(1-d['r_std'])*(1-d['g_std'])*(1-d['b_std'])), 4)
+
+    low_thres = min(int((196 * d['r_min']+14.5)/1), 50)
+
+    high_thres = {
+            'r': min(int((35.66*bright_adjust+48.5)/1), 95),
+            'g': min(int((39.22*bright_adjust+44.5)/1), 95),
+            'b': min(int((45.16*bright_adjust+36.5)/1), 95),
+            }
+
+    new_imd = np.copy(imd)
+    for i, c in enumerate(components):
+        new_imd[:,:,i] = level_arr(new_imd[:,:,i],
+                                   minv=perc2val(low_thres),
+                                   maxv=perc2val(high_thres[c]))
+
+    return np.max(new_imd, axis=2)
 
 
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
@@ -239,7 +284,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
         verbose=False, tmp_dir=None, report_every=None,
-        stop_after=None):
+        stop_after=None, grayscale_pdf=False):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -307,6 +352,9 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 os.remove(tiff_in)
             else:
                 image = Image.open(imgfile)
+
+        if grayscale_pdf:
+            image = Image.fromarray(special_gray_convert(np.array(image)))
 
         render_hq = hq_pages[idx]
 
@@ -744,6 +792,7 @@ def fixup_pymupdf_metadata(doc):
 def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         scandata_file=None, out_pdf=None, out_dir=None,
         reporter=None,
+        grayscale_pdf=False,
         image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
         report_every=None, stop_after=None,
         bg_slope=47000, fg_slope=49000,
@@ -863,7 +912,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           verbose=verbose,
                           tmp_dir=tmp_dir,
                           report_every=report_every,
-                          stop_after=stop)
+                          stop_after=stop,
+                          grayscale_pdf=grayscale_pdf)
     elif image_mode in (0, 1):
         # TODO: Update this codepath
         insert_images(in_pdf, outdoc, mode=image_mode,
