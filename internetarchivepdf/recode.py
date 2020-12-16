@@ -353,7 +353,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             else:
                 image = Image.open(imgfile)
 
-        if grayscale_pdf:
+        if grayscale_pdf and image.mode not in ('L', 'LA'):
             image = Image.fromarray(special_gray_convert(np.array(image)))
 
         render_hq = hq_pages[idx]
