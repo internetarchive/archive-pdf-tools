@@ -18,6 +18,7 @@ import re
 
 from PIL import Image
 from PIL import Jpeg2KImagePlugin
+from skimage.color import rgb2hsv
 import numpy as np
 import fitz
 
@@ -109,7 +110,10 @@ def special_gray_convert(imd):
                                    minv=perc2val(low_thres),
                                    maxv=perc2val(high_thres[c]))
 
-    return np.max(new_imd, axis=2)
+    hsv = rgb2hsv(new_imd)
+    # Calculate the 'L' from 'HSL' as L = S * (1 - V/2)
+    l = hsv[:,:,2] * (1 - (hsv[:,:,1]/2))
+    return np.array(l * 255, dtype=np.uint8)
 
 
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
