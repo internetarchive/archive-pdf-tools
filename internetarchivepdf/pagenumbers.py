@@ -57,7 +57,7 @@ def is_roman_lower(n):
 
 
 def is_roman_upper(n):
-    return n.lower() == n and is_roman(n)
+    return n.upper() == n and is_roman(n)
 
 
 # Evince goes from 'Z' to 'AA' to 'ZZ' to 'AAA'.
