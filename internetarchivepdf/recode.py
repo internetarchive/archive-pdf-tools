@@ -34,7 +34,8 @@ from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
 from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
-        RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,)
+        RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,
+        RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS,)
 
 PDFA_MIN_UNITS = 3
 PDFA_MAX_UNITS = 14400
@@ -116,6 +117,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
         image_files=None, dpi=None, skip_pages=None, dpi_pages=None,
         reporter=None,
         verbose=False, stop_after=None,
+        tmp_dir=None,
         errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
@@ -157,8 +159,28 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 # Pillow reads the entire file for JPEG2000 images - just to get
                 # the image size!
                 fd = open(imgfile, 'rb')
-                size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
-                fd.close()
+                try:
+                    size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
+                except Exception:
+                    # JP2 lacks some info and PIL doesn't like it (Image.open
+                    # will not work, so use kdu_expand to create a tiff)
+                    if errors is not None:
+                        errors.add(RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS)
+
+                    fd2, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
+                    os.close(fd2)
+                    os.remove(tiff_in)
+                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                        tiff_in], stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL)
+
+                    img = Image.open(tiff_in)
+                    size = img.size
+                    del img
+                    os.remove(tiff_in)
+                finally:
+                    fd.close()
+
                 imwidth, imheight = size
             else:
                 img = Image.open(imgfile)
@@ -867,6 +889,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
             skip_pages=skip_pages, dpi_pages=dpi_pages,
             reporter=reporter,
             verbose=verbose, stop_after=stop,
+            tmp_dir=tmp_dir,
             errors=errors)
 
     if verbose:
