@@ -32,17 +32,13 @@ from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
         scandata_xml_get_page_numbers, scandata_xml_get_dpi_per_page, \
         scandata_xml_get_document_dpi
 from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
-        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
-
+        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
+        RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
+        RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,)
 
 PDFA_MIN_UNITS = 3
 PDFA_MAX_UNITS = 14400
 
-RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE = 'invalid-page-size'
-
-RECODE_RUNTIME_WARNINGS = {
-    RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
-}
 
 def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 600]):
     """
@@ -492,9 +488,13 @@ def write_pdfa(to_pdf):
     to_pdf.updateObject(catalogxref, s)
 
 
-def write_page_labels(to_pdf, scandata):
+def write_page_labels(to_pdf, scandata, errors=None):
     page_numbers = scandata_xml_get_page_numbers(scandata)
-    res = parse_series(page_numbers)
+    res, all_ok = parse_series(page_numbers)
+
+    # Add warning/error
+    if errors is not None and not all_ok:
+        errors.add(RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS)
 
     catalogxref = to_pdf.PDFCatalog()
     s = to_pdf.xrefObject(to_pdf.PDFCatalog())
@@ -932,7 +932,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     if scandata_file is not None:
         # XXX: we parse scandata twice now, let's not do that
         # 3b. Write page labels from scandata file, if present
-        write_page_labels(outdoc, scandata_file)
+        write_page_labels(outdoc, scandata_file, errors=errors)
 
 
     lang_if_any = metadata_language[0] if metadata_language else None

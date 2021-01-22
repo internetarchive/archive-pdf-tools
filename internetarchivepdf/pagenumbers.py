@@ -7,7 +7,6 @@ import re
 
 from roman import fromRoman, InvalidRomanNumeralError
 
-
 INVALID, ARABIC, ROMAN_LOWER, ROMAN_UPPER, ALPHA_UPPER, ALPHA_LOWER = range(6)
 
 _type2str = {
@@ -123,14 +122,21 @@ def parse_series(series):
     series_start = 0
 
     resulting_series = []
+    all_ok = True
+
     running_series = []
     running_series_n = []
 
     for idx, val in enumerate(series):
         new = False
 
-        val_type = get_val_type(val)
-        val_value = get_val_value(val, val_type)
+        try:
+            val_type = get_val_type(val)
+            val_value = get_val_value(val, val_type)
+        except ValueError as e:
+            all_ok = False
+            val_type = INVALID
+            val_value = None
 
         if val_type in(ALPHA_UPPER, ALPHA_LOWER):
             raise ValueError('Alpha page numbers are not supported at the '
@@ -172,7 +178,7 @@ def parse_series(series):
                              'values': running_series,
                              'values_numeric': running_series_n})
 
-    return resulting_series
+    return resulting_series, all_ok
 
 
 # https://www.w3.org/TR/WCAG20-TECHS/PDF17.html
@@ -222,6 +228,7 @@ if __name__ == '__main__':
             '3', '4', '5', '4', '6', 'i', '7', None]
     #series = ['', 'i', 'ii', 'vi', 3, 5, 4, 6, 'i', 7, 'A-2', 'B-2']
 
-    res = parse_series(series)
+    res, all_ok = parse_series(series)
     print(res)
+    print(all_ok)
     print(series_to_pdf(res))
