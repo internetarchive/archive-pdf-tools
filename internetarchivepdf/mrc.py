@@ -348,7 +348,8 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
 
 
 def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
-                      tmp_dir=None, jbig2=True):
+                      tmp_dir=None, jbig2=True, timing_data=None):
+    t = time()
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
@@ -366,6 +367,10 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
         fp.write(out)
         fp.close()
 
+    if timing_data is not None:
+        timing_data.append(('mask_jbig2', time()-t))
+
+    t = time()
     # Create background
     fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
     close(fd)
@@ -385,6 +390,11 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
         ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(bg_img_tiff)
 
+    if timing_data is not None:
+        timing_data.append(('bg_jp2', time()-t))
+
+
+    t = time()
     # Create foreground
     fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
     close(fd)
@@ -417,6 +427,8 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
 
     if jbig2:
         remove(mask_img_png)
+    if timing_data is not None:
+        timing_data.append(('fg_jp2', time()-t))
 
 
     # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes their

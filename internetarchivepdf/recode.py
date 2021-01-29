@@ -358,6 +358,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
             image = Image.open(tiff_in)
         else:
+            t = time()
             # Do not subtract skipped pages here
             imgfile = image_files[idx+skipped_pages]
 
@@ -374,9 +375,14 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 os.remove(tiff_in)
             else:
                 image = Image.open(imgfile)
+            if timing_data is not None:
+                timing_data.append(('image_load', time()-t))
 
         if grayscale_pdf and image.mode not in ('L', 'LA'):
+            t = time()
             image = Image.fromarray(special_gray_convert(np.array(image)))
+            if timing_data is not None:
+                timing_data.append(('special_gray_convert', time()-t))
 
         render_hq = hq_pages[idx]
 
@@ -392,7 +398,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
                 bg_slope=hq_bg_slope if render_hq else bg_slope,
                 fg_slope=hq_fg_slope if render_hq else fg_slope,
-                tmp_dir=tmp_dir, jbig2=jbig2)
+                tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data)
 
         if img_dir is not None:
             shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
