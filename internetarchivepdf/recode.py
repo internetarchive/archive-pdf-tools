@@ -740,11 +740,24 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
               <xmp:CreateDate>{createdate}</xmp:CreateDate>
               <xmp:MetadataDate>{metadatadate}</xmp:MetadataDate>
               <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
-              <xmp:CreatorTool>{creatortool}</xmp:CreatorTool>
-            </rdf:Description>
-            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''.format(creatortool=xmlescape(extra_metadata.get('creatortool', PRODUCER)),
+              <xmp:CreatorTool>{creatortool}</xmp:CreatorTool>'''.format(creatortool=xmlescape(extra_metadata.get('creatortool', PRODUCER)),
            createdate=current_time, metadatadate=current_time,
            modifydate=current_time)
+
+        stream += '''
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'''
+
+        if 'url' in extra_metadata:
+            stream += '''
+              <pdf:Keywords>{keywords}</pdf:Keywords>'''.format(keywords=xmlescape(extra_metadata['url']))
+
+        stream += '''
+              <pdf:Producer>{producer}</pdf:Producer>'''.format(producer=xmlescape(PRODUCER))
+
+        stream += '''
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''
 
         if extra_metadata.get('title'):
             stream += '''
