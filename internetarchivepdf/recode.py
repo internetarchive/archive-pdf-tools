@@ -40,6 +40,8 @@ from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
 PDFA_MIN_UNITS = 3
 PDFA_MAX_UNITS = 14400
 
+Image.MAX_IMAGE_PIXELS = 625000000
+
 
 def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 600]):
     """
