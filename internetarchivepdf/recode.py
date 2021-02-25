@@ -31,7 +31,7 @@ from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
         scandata_xml_get_page_numbers, scandata_xml_get_dpi_per_page, \
         scandata_xml_get_document_dpi
-from internetarchivepdf.const import (VERSION, SOFTWARE_URL, PRODUCER,
+from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,
