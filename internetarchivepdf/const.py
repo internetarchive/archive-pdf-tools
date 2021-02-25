@@ -1,9 +1,7 @@
 VERSION = '0.0.1'
 
-SOFTWARE_URL = 'https://git.archive.org/merlijn/archive-pdf-tools'
-PRODUCER = 'Internet Archive PDF creator and recoder %s; %s; written by '\
-           'Merlijn B. W. Wajer. Powered by Tesseract, mupdf and '\
-           'Python (pymupdf/skimage).' % (VERSION, SOFTWARE_URL)
+PRODUCER = 'Internet Archive PDF %s; including '\
+           'mupdf and pymupdf/skimage' % (VERSION,)
 
 
 IMAGE_MODE_PASSTHROUGH = 0
