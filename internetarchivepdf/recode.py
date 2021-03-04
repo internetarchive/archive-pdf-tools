@@ -873,6 +873,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     # Figure out if we have scandata, and figure out if we want to skip pages
     # based on scandata.
     skip_pages = []
+    dpi_pages = None
     if scandata_file is not None:
         skip_pages = scandata_xml_get_skip_pages(scandata_file)
         dpi_pages = scandata_xml_get_dpi_per_page(scandata_file)
