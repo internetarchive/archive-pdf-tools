@@ -33,7 +33,6 @@ improve background compression using JPEG2000 ROI
 (http://summit.sfu.ca/system/files/iritems1/2784/b36288305.pdf)
 """
 
-
 KDU_COMPRESS = 'kdu_compress'
 KDU_EXPAND = 'kdu_expand'
 
@@ -396,7 +395,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
 
 def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
-                      tmp_dir=None, jbig2=True, timing_data=None):
+                      tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
     t = time()
     # Create mask
     #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
@@ -420,7 +419,11 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
 
     t = time()
     # Create background
-    fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
+    if use_kdu:
+        # TODO: check if kakadu supports .tif
+        fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
+    else:
+        fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.pnm', dir=tmp_dir)
     close(fd)
     fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2', dir=tmp_dir)
     close(fd)
@@ -430,12 +433,20 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     bg_img = Image.fromarray(np_bg)
     bg_img.save(bg_img_tiff)
 
-    subprocess.check_call([KDU_COMPRESS,
-        '-num_threads', '0',
-        '-i', bg_img_tiff, '-o', bg_img_jp2,
-        '-slope', str(bg_slope),
-        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
-        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    if use_kdu:
+        subprocess.check_call([KDU_COMPRESS,
+            '-num_threads', '0',
+            '-i', bg_img_tiff, '-o', bg_img_jp2,
+            '-slope', str(bg_slope),
+            'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
+            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    else:
+        subprocess.check_call(['opj_compress',
+            '-i', bg_img_tiff, '-o', bg_img_jp2,
+            '-threads', '1',
+            # Use constant reduction rate here (not psnr)
+            '-r', '400',
+            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(bg_img_tiff)
 
     if timing_data is not None:
@@ -444,7 +455,12 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
 
     t = time()
     # Create foreground
-    fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
+    if use_kdu:
+        # TODO: check if kakadu supports .tif
+        fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
+    else:
+        fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.pnm', dir=tmp_dir)
+
     close(fd)
     fd, fg_img_jp2 = mkstemp(prefix='fg', suffix='.jp2', dir=tmp_dir)
     close(fd)
@@ -461,16 +477,24 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     #maskimg.mode = 'L'
     #maskimg.save(mask_img_png + '.pgm')
     #maskimg.mode = '1'
-    maskimg.convert('L').save(mask_img_png + '.pgm')
 
-    subprocess.check_call([KDU_COMPRESS,
-        '-num_threads', '0',
-        '-i', fg_img_tiff, '-o', fg_img_jp2,
-        '-slope', str(fg_slope),
-        'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
-         '-roi', mask_img_png + '.pgm,0.5',
-        ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    remove(mask_img_png + '.pgm')
+    if use_kdu:
+        maskimg.convert('L').save(mask_img_png + '.pgm')
+        subprocess.check_call([KDU_COMPRESS,
+            '-num_threads', '0',
+            '-i', fg_img_tiff, '-o', fg_img_jp2,
+            '-slope', str(fg_slope),
+            'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
+             '-roi', mask_img_png + '.pgm,0.5',
+            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        remove(mask_img_png + '.pgm')
+    else:
+        subprocess.check_call(['opj_compress',
+            '-threads', '1',
+            '-i', fg_img_tiff, '-o', fg_img_jp2,
+            # Use PSNR here
+            '-q', '25',
+            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(fg_img_tiff)
 
     if jbig2:
@@ -481,61 +505,7 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
 
     # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes their
     # JBIG2 support
-    #print(mask_img_png, bg_img_jp2, fg_img_jp2)
-    #print(mask_img_jbig2, bg_img_jp2, fg_img_jp2)
     if jbig2:
         return mask_img_jbig2, bg_img_jp2, fg_img_jp2
     else:
         return mask_img_png, bg_img_jp2, fg_img_jp2
-
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(
-            description='PDF recoder using MRC and '\
-                        'hOCR for text file placement')
-    parser.add_argument('--jp2-stack', help='Base path of unpacked JP2 stack',
-                        default=None)
-    parser.add_argument('--tesseract-text-only-pdf', help='Path to tesseract'\
-                        'text-only PDF (PDF with just invisible text)',
-                        default=None)
-    parser.add_argument('--out-pdf', help='File to write to', default=None)
-
-    args = parser.parse_args()
-
-    inpath = args.jp2_stack
-    tesspath = args.tesseract_text_only_pdf
-    outpath = args.out_pdf
-
-    pdf = fitz.open(tesspath)
-
-    i = 0
-    for f in sorted(glob(inpath + '*.jp2')):
-        # XXX: Make this /tmp/in.tiff) a tempfile
-        subprocess.check_call([KDU_EXPAND, '-i', f, '-o', '/tmp/in.tiff'],
-                              stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        mask, bg, fg = create_mrc_components(Image.open('/tmp/in.tiff'))
-        mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg)
-
-        #page = pdf.newPage(-1)
-        page = pdf[i]
-
-        bg_contents = open(bg_f, 'rb').read()
-        page.insertImage(page.rect, stream=bg_contents, mask=None)
-
-        fg_contents = open(fg_f, 'rb').read()
-        mask_contents = open(mask_f, 'rb').read()
-
-        page.insertImage(page.rect, stream=fg_contents, mask=mask_contents)
-
-        remove(mask_f)
-        remove(bg_f)
-        remove(fg_f)
-
-        i += 1
-        if i % 10 == 0:
-            print('Saving')
-            pdf.save(outpath)
-
-    print(fitz.TOOLS.mupdf_warnings())
-    pdf.save(outpath, deflate=True)

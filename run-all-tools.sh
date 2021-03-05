@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+echo "This is not a production tool, just a debug tool!"
 
 img=$1
 prefix=$2

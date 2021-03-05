@@ -314,7 +314,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
         verbose=False, tmp_dir=None, report_every=None,
-        stop_after=None, grayscale_pdf=False):
+        stop_after=None, grayscale_pdf=False,
+        use_openjpeg=False):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -359,18 +360,33 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             imgfile = image_files[idx+skipped_pages]
 
             if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
-                fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
+                if not use_openjpeg:
+                    fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
+                else:
+                    fd, tiff_in = mkstemp(prefix='in', suffix='.pnm', dir=tmp_dir)
                 os.close(fd)
                 os.remove(tiff_in)
-                if downsample is not None:
-                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                        tiff_in, '-reduce', str(downsample-1)], stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL)
-                    downsampled = True
+
+                if not use_openjpeg:
+                    if downsample is not None:
+                        subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                            tiff_in, '-reduce', str(downsample-1)], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
+                        downsampled = True
+                    else:
+                        subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                            tiff_in], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
                 else:
-                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                        tiff_in], stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL)
+                    if downsample is not None:
+                        subprocess.check_call(['opj_decompress', '-r',
+                            str(downsample-1), '-i', imgfile, '-o',
+                            tiff_in], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
+                    else:
+                        subprocess.check_call(['opj_decompress', '-i', imgfile, '-o',
+                            tiff_in], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
 
                 image = Image.open(tiff_in)
                 image.load()
@@ -404,7 +420,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
                 bg_slope=hq_bg_slope if render_hq else bg_slope,
                 fg_slope=hq_fg_slope if render_hq else fg_slope,
-                tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data)
+                tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
+                use_kdu=not use_openjpeg)
 
         if img_dir is not None:
             shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
@@ -820,6 +837,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         grayscale_pdf=False,
         image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
         report_every=None, stop_after=None,
+        use_openjpeg=False,
         bg_slope=47000, fg_slope=49000,
         downsample=None,
         bg_downsample=None,
@@ -942,7 +960,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           tmp_dir=tmp_dir,
                           report_every=report_every,
                           stop_after=stop,
-                          grayscale_pdf=grayscale_pdf)
+                          grayscale_pdf=grayscale_pdf,
+                          use_openjpeg=use_openjpeg)
     elif image_mode in (0, 1):
         # TODO: Update this codepath
         insert_images(in_pdf, outdoc, mode=image_mode,

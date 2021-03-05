@@ -33,7 +33,11 @@ Dependencies
     - roman
     - `archive-hocr-tools <https://git.archive.org/merlijn/archive-hocr-tools>`_
 
-* `Kakadu JPEG2000 binaries <https://kakadusoftware.com/>`_ (OpenJPEG2000 support planned)
+
+One-of:
+
+* `Kakadu JPEG2000 binaries <https://kakadusoftware.com/>`_
+* Open source OpenJPEG2000 tools (opj_compress and opj_decompress)
 
 Optional:
 
@@ -55,6 +59,8 @@ Features
   and the text copy-pasteable.
 * PDF/A 3b compatible.
 * Basic PDF/UA support (accessibility features)
+* Support for optional denoising of masks to further improve compression
+  (--denoise-mask)
 
 
 
@@ -62,18 +68,22 @@ Not well tested features
 ========================
 
 * "Recoding" an existing PDF, extracting the images and creating a new PDF with
-  the images from the existing PDF is not well tested.
+  the images from the existing PDF is not well tested. This works OK if every
+  PDF page just has a single image.
 
 
 Planned features
 ================
 
-* Support for OpenJPEG2000 for image encoding
-* Support for using JPEG instead of JPEG2000
-* Support for optional denoising of masks to further improve compression
+* Support for using JPEG instead of JPEG2000 (faster PDF loading, but likely
+  less compression)
 * Addition of a second set of fonts in the PDFs, so that hidden selected text
   also renders the original glyphs.
 * Faster partial blur
+
+Features in progress
+====================
+
 * cupy (numpy/scipy on GPU) support
 
 
@@ -99,12 +109,51 @@ overlaying the mask component of the image, which is losslessly compressed
 In a PDF, this usually means the background image is inserted into a page,
 followed by the foreground image, which uses the mask as it's alpha layer.
 
+Usage
+-----
+
+Scan a document, OCR it with Tesseract and save the result as a compressed PDF
+(JPEG2000 compression with OpenJPEG, background downsamples three times), with
+text layer::
+
+    scanimage --resolution 300 --mode Color --format tiff | tee /tmp/scan.tiff | tesseract - - hocr > /tmp/scan.hocr ; recode_pdf -v --use-openjpeg --bg-downsample 3 --denoise-mask --from-imagestack /tmp/scan.tiff --hocr-file /tmp/scan.hocr -o /tmp/scan.pdf
+    Page 1
+         MMX
+         SSE
+         SSE2
+         SSE3
+         SSSE3
+         SSE41
+         POPCNT
+         SSE42
+         AVX
+         F16C
+    Creating text only PDF
+    Starting page generation at 2021-03-05T00:22:59.294929
+    Finished page generation at 2021-03-05T00:22:59.319370
+    Creating text pages took 0.0245 seconds
+    Inserting (and compressing) images
+    Converting with image mode: 2
+    Fixing up pymupdf metadata
+    mupdf warnings, if any: ''
+    Saving PDF now
+    Processed 1 pages at 11.40 seconds/page
+    Compression ratio: 249.876613
+
 
 MRC Examples
 ------------
 
 (For images, see the ``doc`` branch of this repository)
 
+Examining the results
+---------------------
+
+Use ``pdfimages`` to extract the image layers of a specific page and then view
+them with your favourite image viewer::
+
+    pageno=0; pdfimages -f $pageno -l $pageno -png path_to_pdf extracted_image_base
+    feh extracted_image_base*.png
 
 License
 =======

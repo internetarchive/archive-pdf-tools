@@ -54,6 +54,11 @@ if __name__ == '__main__':
                              '(default is no reporting)')
     parser.add_argument('-t', '--stop-after', default=None, type=int,
                         help='Stop after N pages (default is no stop)')
+    # TODO: Either rename --bg-slope and --fg-slope or add special flags for
+    # opj_compress
+    parser.add_argument('--use-openjpeg', default=False, action='store_true',
+                        help='Use opj_compress and opj_decompress instead of'
+                             ' kakadu. CURRENTLY COMPRESSION HARDCODED')
     parser.add_argument('--bg-slope', default=47000, type=int,
                         help='Slope for background layer.'
                              ' Default is 47000')
@@ -123,6 +128,7 @@ if __name__ == '__main__':
            args.grayscale_pdf,
            args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
            args.report_every, args.stop_after,
+           args.use_openjpeg,
            args.bg_slope, args.fg_slope,
            args.downsample,
            args.bg_downsample,
