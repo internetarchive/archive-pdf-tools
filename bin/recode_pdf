@@ -60,6 +60,9 @@ if __name__ == '__main__':
     parser.add_argument('--fg-slope', default=49000, type=int,
                         help='Slope for foreground layer.'
                              ' Default is 49000')
+    parser.add_argument('--downsample', default=None, type=int,
+                        help='Downsample entire image by factor before '
+                              'processing. Default is no downscaling.')
     parser.add_argument('--bg-downsample', default=None, type=int,
                         help='Downsample background by factor.'
                              ' Default is no scaling')
@@ -121,6 +124,7 @@ if __name__ == '__main__':
            args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
            args.report_every, args.stop_after,
            args.bg_slope, args.fg_slope,
+           args.downsample,
            args.bg_downsample,
            args.denoise_mask,
            args.hq_pages,

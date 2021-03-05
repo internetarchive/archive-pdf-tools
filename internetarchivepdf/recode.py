@@ -305,7 +305,9 @@ def get_timing_summary(timing_data):
 
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         bg_slope=None, fg_slope=None,
-        skip_pages=None, img_dir=None, jbig2=False, bg_downsample=None,
+        skip_pages=None, img_dir=None, jbig2=False,
+        downsample=None,
+        bg_downsample=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
         verbose=False, tmp_dir=None, report_every=None,
@@ -375,10 +377,14 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         render_hq = hq_pages[idx]
 
+        if downsample is not None:
+            w, h = image.size
+            image.thumbnail((w/downsample, h/downsample))
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(image,
                                                   hocr_word_data,
+                                                  downsample=downsample,
                                                   bg_downsample=None if render_hq else bg_downsample,
                                                   denoise_mask=denoise_mask,
                                                   timing_data=timing_data)
@@ -828,6 +834,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
         report_every=None, stop_after=None,
         bg_slope=47000, fg_slope=49000,
+        downsample=None,
         bg_downsample=None,
         denoise_mask=None,
         hq_pages=None,
@@ -937,6 +944,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           skip_pages=skip_pages,
                           img_dir=out_dir,
                           jbig2=jbig2,
+                          downsample=downsample,
                           bg_downsample=bg_downsample,
                           denoise_mask=denoise_mask,
                           reporter=reporter,

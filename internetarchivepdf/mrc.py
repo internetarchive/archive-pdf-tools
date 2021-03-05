@@ -217,7 +217,9 @@ def create_mrc_components(image):
     return mask, np_bg, np_fg
 
 
-def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
+def create_mrc_hocr_components(image, hocr_word_data,
+                               downsample=None,
+                               bg_downsample=None,
                                denoise_mask=None, timing_data=None):
     img = image
     if image.mode != 'L':
@@ -238,9 +240,16 @@ def create_mrc_hocr_components(image, hocr_word_data, bg_downsample=None,
                 if not word['text'].strip():
                     continue
 
-                top, left, bottom, right = [int(x) for x in word['bbox']]
+                if downsample is not None:
+                    top, left, bottom, right = [int(x/downsample) for x in word['bbox']]
+                    # This can happen if we downsample and round to int
+                    if left == right or top == bottom:
+                        continue
 
-                wordimg = img.crop(word['bbox'])
+                    wordimg = img.crop((top, left, bottom, right))
+                else:
+                    top, left, bottom, right = [int(x) for x in word['bbox']]
+                    wordimg = img.crop(word['bbox'])
                 thres = threshold_image2(wordimg)
                 sigma_est = mean_estimate_sigma(thres)
 
