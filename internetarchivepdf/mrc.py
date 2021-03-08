@@ -261,14 +261,41 @@ def create_mrc_hocr_components(image, hocr_word_data,
                     # manner)
                     thres_i = threshold_image2(ImageOps.invert(wordimg))
                     sigma_est_i = mean_estimate_sigma(thres_i)
-
                     ones_i = np.count_nonzero(thres_i)
-                    #zeroes_i = np.count_nonzero(np.invert(thres_i))
 
                     if sigma_est < sigma_est_i:
                         pass
                     elif sigma_est_i < sigma_est and ones_i < ones:
-                        thres = thres_i | thres
+                        ones_i = np.count_nonzero(thres_i)
+
+                        # Find what is closer to the center of the bounding box
+                        ww, hh = thres.shape
+                        center_x = ww/2
+                        center_y = hh/2
+
+                        thres_sum = 0.
+                        thres_i_sum = 0.
+
+                        # TODO: This can be done way more efficiently in numpy
+                        for x in range(ww):
+                            for y in range(hh):
+                                if thres[x, y]:
+                                    thres_sum += ((center_x-x)**2+(center_y-y)**2)**0.5
+                                if thres_i[x, y]:
+                                    thres_i_sum += ((center_x-y)**2+(center_y-y)**2)**0.5
+
+                        if ones > 0:
+                            thres_sum /= ones
+                        if ones_i > 0:
+                            thres_i_sum /= ones_i
+
+                        if thres_sum < thres_i_sum:
+                            pass
+                        elif thres_i_sum > thres_sum:
+                            thres = thres_i
+                        else:
+                            # Won't really ever happen, but ok
+                            thres = thres_i | thres
 
                 mask_arr[left:right, top:bottom] = thres
 
