@@ -320,6 +320,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
     timing_data = []
     reporting_page_count = 0
 
+    downsampled = False
+
     #for idx, page in enumerate(to_pdf):
     for idx, hocr_page in enumerate(hocr_iter):
         if skip_pages is not None and idx in skip_pages:
@@ -357,9 +359,15 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
                 os.close(fd)
                 os.remove(tiff_in)
-                subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                    tiff_in], stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL)
+                if downsample is not None:
+                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                        tiff_in, '-reduce', str(downsample-1)], stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL)
+                    downsampled = True
+                else:
+                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
+                        tiff_in], stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL)
 
                 image = Image.open(tiff_in)
                 image.load()
@@ -377,9 +385,11 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         render_hq = hq_pages[idx]
 
-        if downsample is not None:
+        if downsample is not None and not downsampled:
             w, h = image.size
-            image.thumbnail((w/downsample, h/downsample))
+            image.thumbnail((w/downsample, h/downsample),
+                            resample=Image.LANCZOS, reducing_gap=None)
+            downsampled = True
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
         mask, bg, fg = create_mrc_hocr_components(image,
