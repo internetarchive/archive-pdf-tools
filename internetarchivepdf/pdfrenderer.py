@@ -56,7 +56,7 @@ class TessPDFRenderer(object):
     def AppendData(self, s):
         self._data += s
 
-    def GetPDFTextObjects(self, word_data, width, height, ppi):
+    def GetPDFTextObjects(self, word_data, width, height, ppi, hocr_ppi=None):
         # Stub values
         old_x = 0.0
         old_y = 0.0
@@ -160,6 +160,8 @@ class TessPDFRenderer(object):
                     old_writing_direction = writing_direction
 
                     fontsize = word['fontsize']
+                    if hocr_ppi is not None and fontsize:
+                        fontsize = int(fontsize * (72./hocr_ppi))
                     kDefaultFontsize = 8;
                     if fontsize <= 0:
                         fontsize = kDefaultFontsize
@@ -378,7 +380,7 @@ class TessPDFRenderer(object):
                    b'\n%%EOF\n')
         self.AppendString(stream)
 
-    def AddImageHandler(self, word_data, width, height, ppi):
+    def AddImageHandler(self, word_data, width, height, ppi, hocr_ppi=None):
         xobject = bytes()
         stream = bytes()
 
@@ -403,7 +405,7 @@ class TessPDFRenderer(object):
         self._pages.append(self._obj)
         self.AppendPDFObject(stream)
 
-        pdftext = self.GetPDFTextObjects(word_data, width, height, ppi)
+        pdftext = self.GetPDFTextObjects(word_data, width, height, ppi, hocr_ppi=hocr_ppi)
         comp_pdftext = zlib.compress(pdftext)
         stream = bytes()
 

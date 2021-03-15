@@ -24,7 +24,7 @@ import numpy as np
 import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
-        hocr_page_get_dimensions)
+        hocr_page_get_dimensions, hocr_page_get_scan_res)
 from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
         encode_mrc_images
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
@@ -137,6 +137,9 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
 
     for idx, hocr_page in enumerate(hocr_iter):
         w, h = hocr_page_get_dimensions(hocr_page)
+        hocr_dpi = hocr_page_get_scan_res(hocr_page)
+        # If scan_res is not found in hOCR, it returns (None, None)
+        hocr_dpi = hocr_dpi[1]
 
         if skip_pages is not None and idx in skip_pages:
             if verbose:
@@ -249,7 +252,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             height = imheight * scaler
 
         word_data = hocr_page_to_word_data(hocr_page, scaler)
-        render.AddImageHandler(word_data, width, height, ppi=ppi)
+        render.AddImageHandler(word_data, width, height, ppi=ppi, hocr_ppi=hocr_dpi)
 
         reporting_page_count += 1
 
