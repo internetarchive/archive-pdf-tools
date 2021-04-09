@@ -1,4 +1,4 @@
-VERSION = '1.1.1'
+VERSION = '1.1.2'
 
 PRODUCER = 'Internet Archive PDF %s; including '\
            'mupdf and pymupdf/skimage' % (VERSION,)
