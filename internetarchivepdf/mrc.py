@@ -1,5 +1,6 @@
 # Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
 
+import sys
 from os import close, remove
 
 from glob import glob
@@ -222,6 +223,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
                                bg_downsample=None,
                                denoise_mask=None, timing_data=None):
     img = image
+    image_width, image_height = image.size
     if image.mode != 'L':
         t = time()
         img = image.convert('L')
@@ -241,15 +243,25 @@ def create_mrc_hocr_components(image, hocr_word_data,
                     continue
 
                 if downsample is not None:
-                    top, left, bottom, right = [int(x/downsample) for x in word['bbox']]
+                    left, top, right, bottom = [int(x/downsample) for x in word['bbox']]
                     # This can happen if we downsample and round to int
                     if left == right or top == bottom:
                         continue
 
-                    wordimg = img.crop((top, left, bottom, right))
+                    wordimg = img.crop((left, top, right, bottom))
                 else:
-                    top, left, bottom, right = [int(x) for x in word['bbox']]
+                    # TODO: did I just always fuck this up?
+                    left, top, right, bottom = [int(x) for x in word['bbox']]
                     wordimg = img.crop(word['bbox'])
+
+                if (left > right) or (top > bottom):
+                    print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
+                    continue
+
+                if (left < 0) or (right > image_width) or (top < 0) or (bottom > image_height):
+                    print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
+                    continue
+
                 thres = threshold_image2(wordimg)
                 sigma_est = mean_estimate_sigma(thres)
 
@@ -297,7 +309,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
                             # Won't really ever happen, but ok
                             thres = thres_i | thres
 
-                mask_arr[left:right, top:bottom] = thres
+                mask_arr[top:bottom, left:right] = thres
 
     if timing_data is not None:
         timing_data.append(('hocr_mask_gen', time() - t))
