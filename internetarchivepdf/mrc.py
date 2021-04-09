@@ -254,11 +254,11 @@ def create_mrc_hocr_components(image, hocr_word_data,
                     left, top, right, bottom = [int(x) for x in word['bbox']]
                     wordimg = img.crop(word['bbox'])
 
-                if (left > right) or (top > bottom):
+                if (left >= right) or (top >= bottom):
                     print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
                     continue
 
-                if (left < 0) or (right > image_width) or (top < 0) or (bottom > image_height):
+                if (left < 0) or (right >= image_width) or (top < 0) or (bottom >= image_height):
                     print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
                     continue
 
