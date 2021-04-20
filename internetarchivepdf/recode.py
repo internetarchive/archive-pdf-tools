@@ -412,13 +412,13 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
 
         bg_contents = open(bg_f, 'rb').read()
-        page.insertImage(page.rect, stream=bg_contents, mask=None,
+        page.insert_image(page.rect, stream=bg_contents, mask=None,
                 overlay=False)
 
         fg_contents = open(fg_f, 'rb').read()
         mask_contents = open(mask_f, 'rb').read()
 
-        page.insertImage(page.rect, stream=fg_contents, mask=mask_contents,
+        page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
                 overlay=True)
 
         # Remove leftover files
@@ -478,10 +478,10 @@ def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
         maskxref = img[1]
         if mode == IMAGE_MODE_PASSTHROUGH:
             image = from_pdf.extractImage(xref)
-            page.insertImage(page.rect, stream=image["image"], overlay=False)
+            page.insert_image(page.rect, stream=image["image"], overlay=False)
         elif mode == IMAGE_MODE_PIXMAP:
             pixmap = fitz.Pixmap(from_pdf, xref)
-            page.insertImage(page.rect, pixmap=pixmap, overlay=False)
+            page.insert_image(page.rect, pixmap=pixmap, overlay=False)
 
         if stop_after is not None and idx >= stop_after:
             break
@@ -493,8 +493,8 @@ def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
 
 # XXX: tmp.icc - pick proper one and ship it with the tool, or embed it
 def write_pdfa(to_pdf):
-    srgbxref = to_pdf._getNewXref()
-    to_pdf.updateObject(srgbxref, """
+    srgbxref = to_pdf.get_new_xref()
+    to_pdf.update_object(srgbxref, """
 <<
       /Alternate /DeviceRGB
       /N 3
@@ -503,8 +503,8 @@ def write_pdfa(to_pdf):
     icc = pkg_resources.resource_string('internetarchivepdf', "data/tmp.icc")
     to_pdf.updateStream(srgbxref, icc, new=True)
 
-    intentxref = to_pdf._getNewXref()
-    to_pdf.updateObject(intentxref, """
+    intentxref = to_pdf.get_new_xref()
+    to_pdf.update_object(intentxref, """
 <<
   /Type /OutputIntent
   /S /GTS_PDFA1
@@ -514,12 +514,12 @@ def write_pdfa(to_pdf):
 >>
 """ % srgbxref)
 
-    catalogxref = to_pdf.PDFCatalog()
-    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
     s = s[:-2]
     s += '  /OutputIntents [ %d 0 R ]' % intentxref
     s += '>>'
-    to_pdf.updateObject(catalogxref, s)
+    to_pdf.update_object(catalogxref, s)
 
 
 def write_page_labels(to_pdf, scandata, errors=None):
@@ -530,19 +530,19 @@ def write_page_labels(to_pdf, scandata, errors=None):
     if errors is not None and not all_ok:
         errors.add(RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS)
 
-    catalogxref = to_pdf.PDFCatalog()
-    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
     s = s[:-2]
     s += series_to_pdf(res)
     s += '>>'
-    to_pdf.updateObject(catalogxref, s)
+    to_pdf.update_object(catalogxref, s)
 
 
 
 def write_basic_ua(to_pdf, language=None):
     # Create StructTreeRoot and descendants, allocate new xrefs as needed
-    structtreeroot_xref = to_pdf._getNewXref()
-    parenttree_xref = to_pdf._getNewXref()
+    structtreeroot_xref = to_pdf.get_new_xref()
+    parenttree_xref = to_pdf.get_new_xref()
     page_info_xrefs = []
     page_info_a_xrefs = []
     parenttree_kids_xrefs = []
@@ -550,28 +550,28 @@ def write_basic_ua(to_pdf, language=None):
 
     kids_cnt = ceil(to_pdf.pageCount / 32)
     for _ in range(kids_cnt):
-        kid_xref = to_pdf._getNewXref()
+        kid_xref = to_pdf.get_new_xref()
         parenttree_kids_xrefs.append(kid_xref)
 
     # Parent tree contains a /Kids entry with a list of xrefs, that each contain
     # a list of xrefs (limited to 32 per), and each entry in that list of list
     # of xrefs contains a single reference that points to the page info xref.
     for idx, page in enumerate(to_pdf):
-        page_info_xref = to_pdf._getNewXref()
+        page_info_xref = to_pdf.get_new_xref()
         page_info_xrefs.append(page_info_xref)
 
-        page_info_a_xref = to_pdf._getNewXref()
+        page_info_a_xref = to_pdf.get_new_xref()
         page_info_a_xrefs.append(page_info_a_xref)
 
-        parenttree_kids_indirect_xref = to_pdf._getNewXref()
+        parenttree_kids_indirect_xref = to_pdf.get_new_xref()
         parenttree_kids_indirect_xrefs.append(parenttree_kids_indirect_xref)
 
 
     for idx in range(kids_cnt):
         start = idx*32
         stop = (idx+1)*31
-        if stop > to_pdf.pageCount:
-            stop = to_pdf.pageCount - 1
+        if stop > to_pdf.page_count:
+            stop = to_pdf.page_count- 1
 
         s = """<<
   /Limits [ %d %d ]
@@ -586,7 +586,7 @@ def write_basic_ua(to_pdf, language=None):
 
         s += ']\n>>'
 
-        to_pdf.updateObject(parenttree_kids_xrefs[idx], s)
+        to_pdf.update_object(parenttree_kids_xrefs[idx], s)
 
 
     for idx, page in enumerate(to_pdf):
@@ -599,7 +599,7 @@ def write_basic_ua(to_pdf, language=None):
   /Placement /Block
 >>
 """ % intrect
-        to_pdf.updateObject(page_info_a_xrefs[idx], s)
+        to_pdf.update_object(page_info_a_xrefs[idx], s)
 
         s = """ <<
   /A %d 0 R
@@ -609,12 +609,12 @@ def write_basic_ua(to_pdf, language=None):
   /S /Figure
 >>""" % (page_info_a_xrefs[idx], structtreeroot_xref, page.xref)
 
-        to_pdf.updateObject(page_info_xrefs[idx], s)
+        to_pdf.update_object(page_info_xrefs[idx], s)
 
 
     for idx, page in enumerate(to_pdf):
         s = '[ %d 0 R ]' % page_info_a_xrefs[idx]
-        to_pdf.updateObject(parenttree_kids_indirect_xrefs[idx], s)
+        to_pdf.update_object(parenttree_kids_indirect_xrefs[idx], s)
 
 
     K = '  /Kids [ '
@@ -630,7 +630,7 @@ def write_basic_ua(to_pdf, language=None):
 >>
 """ % K
 
-    to_pdf.updateObject(parenttree_xref, s)
+    to_pdf.update_object(parenttree_xref, s)
 
     K = '  /K [ '
     for idx, xref in enumerate(page_info_xrefs):
@@ -641,7 +641,7 @@ def write_basic_ua(to_pdf, language=None):
 
     K += ']'
 
-    to_pdf.updateObject(structtreeroot_xref, """
+    to_pdf.update_object(structtreeroot_xref, """
 <<
 """ + K + """
   /Type /StructTreeRoot
@@ -655,7 +655,7 @@ def write_basic_ua(to_pdf, language=None):
 
     # Update pages, add back xrefs
     for idx, page in enumerate(to_pdf):
-        page_data = to_pdf.xrefObject(page.xref)
+        page_data = to_pdf.xref_object(page.xref)
         page_data = page_data[:-2]
 
         page_data += """
@@ -673,10 +673,10 @@ def write_basic_ua(to_pdf, language=None):
   /Tabs /S
 """
         page_data += '>>'
-        to_pdf.updateObject(page.xref, page_data)
+        to_pdf.update_object(page.xref, page_data)
 
-    catalogxref = to_pdf.PDFCatalog()
-    s = to_pdf.xrefObject(to_pdf.PDFCatalog())
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
     s = s[:-2]
     s += """
   /ViewerPreferences <<
@@ -699,7 +699,7 @@ def write_basic_ua(to_pdf, language=None):
 """ % structtreeroot_xref
 
     s += '>>'
-    to_pdf.updateObject(catalogxref, s)
+    to_pdf.update_object(catalogxref, s)
 
 
 
@@ -727,15 +727,15 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
     doc_md['modDate'] = current_time
 
     # Set PDF basic metadata
-    to_pdf.setMetadata(doc_md)
+    to_pdf.set_metadata(doc_md)
 
-    have_xmlmeta = (from_pdf is not None) and (from_pdf._getXmlMetadataXref() > 0)
+    have_xmlmeta = (from_pdf is not None) and (from_pdf.xref_xml_metadata() > 0)
     if have_xmlmeta:
-        xml_xref = from_pdf._getXmlMetadataXref()
+        xml_xref = from_pdf.xref_xml_metadata()
 
         # Just copy the existing XML, perform no validity checks
         xml_bytes = from_pdf.xrefStream(xml_xref)
-        to_pdf.setXmlMetadata(xml_bytes.decode('utf-8'))
+        to_pdf.set_xml_metadata(xml_bytes.decode('utf-8'))
     else:
         current_time = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
 
@@ -810,33 +810,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         </x:xmpmeta>
         <?xpacket end="r"?>'''
 
-        to_pdf.setXmlMetadata(stream)
-
-
-#  pymupdf inserts stuff like '/Author (none)' when the author is not provided.
-#  This is wrong. We'll file a bug, but let's first fix it here.
-def fixup_pymupdf_metadata(doc):
-    # Access to the Info xref is not in the API, so let's dig for it.
-    trailer_lines = doc.PDFTrailer().split('\n')
-    for line in trailer_lines:
-        if '  /Info ' in line:
-            s = line.replace('  /Info ', '')
-            info_xref = s[:s.find(' ')]
-            info_xref = int(info_xref)
-
-            s = doc.xrefObject(info_xref)
-
-            new_s = ''
-
-            for infoline in s.split('\n'):
-                if re.match('^.*\/[A-Za-z]+ \(none\)$', infoline):
-                    continue
-
-                new_s += infoline + '\n'
-
-            doc.updateObject(info_xref, new_s)
-
-            break
+        to_pdf.set_xml_metadata(stream)
 
 
 # TODO: Document these options (like in bin/recode_pdf)
@@ -1006,9 +980,6 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     if metadata_creatortool:
         extra_metadata['creatortool'] = metadata_creatortool
     write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
-
-    print('Fixing up pymupdf metadata')
-    fixup_pymupdf_metadata(outdoc)
 
     # 5. Save
     if verbose:
