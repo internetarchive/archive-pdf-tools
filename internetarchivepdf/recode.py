@@ -1001,8 +1001,9 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     write_metadata(in_pdf, outdoc, extra_metadata=extra_metadata)
 
     # 5. Save
-    if verbose:
-        print('mupdf warnings, if any:', repr(fitz.TOOLS.mupdf_warnings()))
+    mupdf_warnings = fitz.TOOLS.mupdf_warnings()
+    if mupdf_warnings:
+        print('mupdf warnings:', repr(mupdf_warnings))
     if verbose:
         print('Saving PDF now')
 
