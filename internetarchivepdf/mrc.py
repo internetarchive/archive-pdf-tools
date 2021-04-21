@@ -388,7 +388,19 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
 
 def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
-    # TODO: doc
+    """
+    Encode mask image either to JBIG2 or PNG.
+
+    Args:
+
+    * mask (PIL.Image): image mask
+    * tmp_dir (str): path the temporary directory to write images to
+    * jbig2 (bool): Whether to encode to JBIG2 or PNG
+    * timing_data (optional): Add time information to timing_data structure
+
+    Returns a tuple: (str, str) where the first entry is the jbig2
+    path, if any, the second is the png path.
+    """
     t = time()
 
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
@@ -397,8 +409,7 @@ def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
         fd, mask_img_jbig2 = mkstemp(prefix='mask', suffix='.jbig2', dir=tmp_dir)
         close(fd)
 
-    maskimg = Image.fromarray(mask)
-    maskimg.save(mask_img_png, compress_level=0)
+    mask.save(mask_img_png, compress_level=0)
     # TODO: we want to free maskimg, but roi encoding needs it layer on....
     # let's fix this
 
@@ -412,9 +423,9 @@ def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
         timing_data.append(('mask_jbig2', time()-t))
 
     if jbig2:
-        return mask_img_jbig2, mask_img_png, maskimg
+        return mask_img_jbig2, mask_img_png
     else:
-        return None, mask_img_png, maskimg
+        return None, mask_img_png
 
 
 def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
@@ -515,7 +526,10 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=None, fg_slope=None,
                       tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
     # TODO: Let's see if we can stop using roi encoding, or at least not keep
     # maskimg in memory just to create another (different) pgm file later on
-    mask_img_jbig2, mask_img_png, maskimg = encode_mrc_mask(mask, tmp_dir=tmp_dir, jbig2=jbig2,
+
+    maskimg = Image.fromarray(mask)
+
+    mask_img_jbig2, mask_img_png = encode_mrc_mask(maskimg, tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
 
     bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
