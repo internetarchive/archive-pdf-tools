@@ -394,11 +394,10 @@ def create_mrc_hocr_components(image, hocr_word_data,
     return mask_arr, image_arr, foreground_arr
 
 
-def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
-                      tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
+def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
+    # TODO: doc
     t = time()
-    # Create mask
-    #fd, mask_img_png = mkstemp(prefix='mask', suffix='.pgm')
+
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
     close(fd)
     if jbig2:
@@ -406,7 +405,9 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
         close(fd)
 
     maskimg = Image.fromarray(mask)
-    maskimg.save(mask_img_png, compress_level=0) # XXX: Check compress_level vs compress
+    maskimg.save(mask_img_png, compress_level=0)
+    # TODO: we want to free maskimg, but roi encoding needs it layer on....
+    # let's fix this
 
     if jbig2:
         out = subprocess.check_output(['jbig2', mask_img_png])
@@ -417,6 +418,14 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     if timing_data is not None:
         timing_data.append(('mask_jbig2', time()-t))
 
+    if jbig2:
+        return mask_img_jbig2, mask_img_png, maskimg
+    else:
+        return None, mask_img_png, maskimg
+
+
+def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
+    # TODO: doc
     t = time()
     # Create background
     if use_kdu:
@@ -452,7 +461,13 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
     if timing_data is not None:
         timing_data.append(('bg_jp2', time()-t))
 
+    return bg_img_jp2
 
+
+# TODO: consider if we even want to use the roi encoding, it doesn't seem to
+# help much as far as I can tell. Maybe we should aim for a constant quality
+# rate rather than fixed Clayers, etc
+def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
     t = time()
     # Create foreground
     if use_kdu:
@@ -497,15 +512,32 @@ def encode_mrc_images(mask, np_bg, np_fg, bg_slope=0.1, fg_slope=0.05,
             ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     remove(fg_img_tiff)
 
-    if jbig2:
-        remove(mask_img_png)
     if timing_data is not None:
         timing_data.append(('fg_jp2', time()-t))
 
+    return fg_img_jp2
 
-    # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes their
-    # JBIG2 support
+
+def encode_mrc_images(mask, np_bg, np_fg, bg_slope=None, fg_slope=None,
+                      tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
+    # TODO: Let's see if we can stop using roi encoding, or at least not keep
+    # maskimg in memory just to create another (different) pgm file later on
+    mask_img_jbig2, mask_img_png, maskimg = encode_mrc_mask(mask, tmp_dir=tmp_dir, jbig2=jbig2,
+            timing_data=timing_data)
+
+    bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
+                                       use_kdu=use_kdu, timing_data=timing_data)
+
+    fg_img_jp2 = encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope,
+                                       tmp_dir=tmp_dir, use_kdu=use_kdu,
+                                       timing_data=timing_data)
+
+    if jbig2:
+        remove(mask_img_png)
+
     if jbig2:
         return mask_img_jbig2, bg_img_jp2, fg_img_jp2
     else:
+        # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes
+        # their JBIG2 support
         return mask_img_png, bg_img_jp2, fg_img_jp2
