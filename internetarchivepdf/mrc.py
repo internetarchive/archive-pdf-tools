@@ -429,7 +429,20 @@ def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
 
 
 def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
-    # TODO: doc
+    """
+    Encode background image as JPEG2000, with the provided compression settings
+    and JPEG2000 encoder.
+
+    Args:
+
+    * np_bg (numpy.array): Background image array
+    * bg_slope (int): Compression parameter(s), WIP
+    * tmp_dir (str): path the temporary directory to write images to
+    * use_kdu (bool): Whether to encode using Kakadu or OpenJPEG2000
+    * timing_data (optional): Add time information to timing_data structure
+
+    Returns the filepath to the JPEG2000 background image
+    """
     t = time()
     # Create background
     if use_kdu:
@@ -472,6 +485,22 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
 # help much as far as I can tell. Maybe we should aim for a constant quality
 # rate rather than fixed Clayers, etc
 def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
+    """
+    Encode foreground image as JPEG2000, with the provided compression settings
+    and JPEG2000 encoder.
+
+    Args:
+
+    * np_bg (numpy.array): Foreground image array
+    * maskimg (PIL.Image): Image mask, to be used for Region of Interest (RoI)
+      encoding.
+    * bg_slope (int): Compression parameter(s), WIP
+    * tmp_dir (str): path the temporary directory to write images to
+    * use_kdu (bool): Whether to encode using Kakadu or OpenJPEG2000
+    * timing_data (optional): Add time information to timing_data structure
+
+    Returns the filepath to the JPEG2000 foreground image
+    """
     t = time()
     # Create foreground
     if use_kdu:
