@@ -24,13 +24,6 @@ fitz.TOOLS.set_icc(True) # For good measure, not required
 
 
 """
-TODO:
-
-Improve the MRC algorithm, by improving the foreground detection (either
-using ocropus binarisation or using a paper that both Hank and a friend of mine
-ound: https://engineering.purdue.edu/~bouman/software/Text-Seg/tip30.pdf),
-improve background compression using JPEG2000 ROI
-(http://summit.sfu.ca/system/files/iritems1/2784/b36288305.pdf)
 """
 
 KDU_COMPRESS = 'kdu_compress'
