@@ -183,33 +183,6 @@ def partial_boxblur(mask, fg, size=5, mode=None):
 
 
 
-
-def create_mrc_components(image):
-    img = image
-    if image.mode != 'L':
-        img = image.convert('L')
-    mask = threshold_image(img)
-    #imask = inverse_mask(mask)
-
-    mask_img = Image.fromarray(mask)
-
-    np_im = np.array(image)
-
-    np_bg = np.copy(np_im)
-    np_fg = np.copy(np_im)
-
-    # XXX: We likely don't want this to be the 'average'. We might want it (and
-    # some neighbouring pixels!) to be 'background' colour, or something like
-    # that.
-    np_bg[mask] = np.average(np_im)
-
-    # We might not want to touch these pixels, but let's set them to zero for
-    # now for good measure.
-    # np_fg[mask] = 0
-
-    return mask, np_bg, np_fg
-
-
 def create_mrc_hocr_components(image, hocr_word_data,
                                downsample=None,
                                bg_downsample=None,

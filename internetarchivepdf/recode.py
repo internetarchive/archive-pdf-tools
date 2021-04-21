@@ -25,7 +25,7 @@ import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)
-from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_components, create_mrc_hocr_components, \
+from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_hocr_components, \
         encode_mrc_images
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
