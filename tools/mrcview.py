@@ -34,4 +34,4 @@ for idx, page in enumerate(doc):
             add_image_page(page, newdoc, stream)
 
 
-newdoc.save(sys.argv[2])
+newdoc.save(sys.argv[2], deflate=True, pretty=True)
