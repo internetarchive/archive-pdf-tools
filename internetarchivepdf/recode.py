@@ -329,8 +329,6 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
     #for idx, page in enumerate(to_pdf):
     for idx, hocr_page in enumerate(hocr_iter):
         if skip_pages is not None and idx in skip_pages:
-            if verbose:
-                print('IMAGES Skipping page %d' % idx)
             skipped_pages += 1
             continue
 
