@@ -38,7 +38,7 @@ if __name__ == '__main__':
     print(np.mean(img))
     print(np.median(img))
 
-    imgf = np.array(img, dtype=np.float)
+    imgf = np.array(img, dtype=float)
     sigma_est = np.mean(estimate_sigma(imgf))
     print('Sigma:', sigma_est)
 
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     else:
         img = np.array(img)  # XXX: hack for denoise
 
-    imgf = np.array(img, dtype=np.float)
+    imgf = np.array(img, dtype=float)
     n_sigma_est = np.mean(estimate_sigma(imgf))
     print('Sigma:', n_sigma_est)
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     arr = threshold_image3(np.array(img, dtype=np.uint8))
     print('Threshold took:', time()-t)
 
-    sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=np.float)))
+    sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=float)))
     print('Threshold sigma estimate:', sigma_est)
 
     if args.with_invert_image:
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         arr |= threshold_image3(np.array(inverted_image, dtype=np.uint8))
         print('Inverted threshold took:', time()-t)
 
-        sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=np.float)))
+        sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=float)))
         print('Merged threshold sigma estimate:', sigma_est)
 
     if args.with_postdenoise:
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         arr = denoise_bregman(arr)
         print('Denoise took:', time()-t)
 
-        sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=np.float)))
+        sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=float)))
         print('Threshold sigma estimate:', sigma_est)
 
     if args.invert_mask:
