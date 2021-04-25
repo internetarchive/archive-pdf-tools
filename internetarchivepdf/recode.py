@@ -411,13 +411,18 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             downsampled = True
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
-        mask, bg, fg = create_mrc_hocr_components(image,
-                                                  hocr_word_data,
-                                                  downsample=downsample,
-                                                  bg_downsample=None if render_hq else bg_downsample,
-                                                  denoise_mask=denoise_mask,
-                                                  timing_data=timing_data)
-        mask_f, bg_f, fg_f = encode_mrc_images(mask, bg, fg,
+        mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
+                downsample=downsample, bg_downsample=None if render_hq else
+                bg_downsample, denoise_mask=denoise_mask,
+                timing_data=timing_data)
+
+
+        # TODO: keep all these files on disk, and insert them into the pager
+        # later? maybe? or just saveIncr()
+        # TODO: maybe call the encode_mrc_{mask,foreground,background}
+        # separately from here so that we can free the arrays sooner (and even
+        # get the images separately from the create_mrc_hocr_components call)
+        mask_f, bg_f, fg_f = encode_mrc_images(mrc_gen,
                 bg_slope=hq_bg_slope if render_hq else bg_slope,
                 fg_slope=hq_fg_slope if render_hq else fg_slope,
                 tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,

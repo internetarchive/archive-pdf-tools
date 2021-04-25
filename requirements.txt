@@ -4,3 +4,4 @@ lxml
 scikit-image
 Pillow
 roman==3.3
+Cython==0.29.23

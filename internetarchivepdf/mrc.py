@@ -17,6 +17,8 @@ from skimage.restoration import denoise_tv_bregman, estimate_sigma
 from scipy import ndimage
 import numpy as np
 
+from optimiser import optimise_gray, optimise_rgb
+from sauvola import binarise_sauvola
 
 import fitz
 
@@ -43,11 +45,9 @@ def invert_mask(mask):
 def threshold_image(pil_image, rev=False, otsu=False, block_size=9):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
-    the text more readable. Tesseract uses Otsu thresholding, which in our
-    testing hasn't worked all that well, so we perform better thresholding
-    before passing the image to tesseract.
+    the text more readable. 
 
-    Returns the thresholded PIL image
+    Returns the thresholded np image array
     """
     img = np.array(pil_image)
 
@@ -82,15 +82,21 @@ def threshold_image2(pil_image):
     return local & otsu
 
 
-def threshold_image3(img, rev=False):
+def threshold_image3(img):
     window_size = 51
-    thres_sauvola = threshold_sauvola(img, window_size=window_size, k=0.3)
-    if rev:
-        binary_img = img > thres_sauvola
-    else:
-        binary_img = img < thres_sauvola
+    #window_size = 21
 
-    return binary_img
+    h, w = img.shape
+    out_img = np.ndarray(img.shape, dtype=np.bool)
+    out_img = np.reshape(out_img, w*h)
+    in_img = np.reshape(img, w*h)
+
+    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, 0.3, 128)
+    out_img = np.reshape(out_img, (h, w))
+    # TODO: optimise this, we can do it in binarise_sauvola
+    out_img = np.invert(out_img)
+
+    return out_img
 
 
 def denoise_bregman(binary_img):
@@ -182,24 +188,8 @@ def partial_boxblur(mask, fg, size=5, mode=None):
     return newfg
 
 
-
-def create_mrc_hocr_components(image, hocr_word_data,
-                               downsample=None,
-                               bg_downsample=None,
-                               denoise_mask=None, timing_data=None):
-    img = image
-    image_width, image_height = image.size
-    if image.mode != 'L':
-        t = time()
-        img = image.convert('L')
-        if timing_data is not None:
-            timing_data.append(('grey_conversion', time() - t))
-
-    image_mask = Image.new('1', image.size)
-    mask_arr = np.array(image_mask)
-
-    MIX_THRESHOLD = True
-
+def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data=None):
+    image_width, image_height = img.size
     t = time()
     for paragraphs in hocr_word_data:
         for lines in paragraphs['lines']:
@@ -279,85 +269,140 @@ def create_mrc_hocr_components(image, hocr_word_data,
     if timing_data is not None:
         timing_data.append(('hocr_mask_gen', time() - t))
 
+
+def create_threshold_mask(mask_arr, imgf, denoise_mask=None, timing_data=None):
+    # We don't apply any of these blurs to the hOCR mask, we want that as
+    # sharp as possible.
+
+    t = time()
+    sigma_est = mean_estimate_sigma(imgf)
+    if timing_data is not None:
+        timing_data.append(('est_1', time() - t))
+    if sigma_est > 1.0:
+        t = time()
+        imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
+        if timing_data is not None:
+            timing_data.append(('blur_1', time() - t))
+
+        #t = time()
+        #n_sigma_est = mean_estimate_sigma(imgf)
+        #time_data.append(('est_2', time() - t))
+        #if sigma_est > 1.0 and n_sigma_est > 1.0:
+        #    t = time()
+        #    imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
+        #    print('Going for second blur: n_sigma_est:',n_sigma_est)
+        #    time_data.append(('blur_2', time() - t))
+
+    t = time()
+    #thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
+    thres_arr = threshold_image3(imgf.astype(np.uint8))
+    if timing_data is not None:
+        timing_data.append(('threshold', time() - t))
+
+    if denoise_mask is not None and denoise_mask:
+        t = time()
+        sigma_est = mean_estimate_sigma(thres_arr)
+        if timing_data is not None:
+            timing_data.append(('est_3', time() - t))
+
+        if sigma_est > 0.1:
+            t = time()
+            thres_arr = denoise_bregman(thres_arr)
+            if timing_data is not None:
+                timing_data.append(('denoise', time() - t))
+
+
+    thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
+
+    mask_arr |= thres_arr
+
+
+# TODO: Reduce amount of memory active at one given point (keep less images in
+# memory, write to disk sooner, etc), careful with numpy <-> PIL conversions
+def create_mrc_hocr_components(image, hocr_word_data,
+                               downsample=None,
+                               bg_downsample=None,
+                               denoise_mask=None, timing_data=None):
+    """
+    Create the MRC components: mask, foreground and background
+
+    Args:
+
+    * image (PIL.Image): Image to be decomposed
+    * hocr_word_data: OCR data about found text on the page
+    * downsample (int): factor by which the OCR data is to be downsampled
+    * bg_downsample (int): if the background image should be downscaled
+    * denoise_mask (bool): Whether to denoise the image if it is deemed too
+      noisy
+    * timing_data: Optional timing data to log individual timing data to.
+
+    Returns a tuple of the components, as numpy arrays: (mask, foreground,
+    background)
+    """
+    grayimg = image
+    if image.mode != 'L':
+        t = time()
+        grayimg = image.convert('L')
+        if timing_data is not None:
+            timing_data.append(('grey_conversion', time() - t))
+
+    mask_arr = np.array(Image.new('1', image.size))
+
+    # Modifies mask_arr in place
+    create_hocr_mask(grayimg, mask_arr, hocr_word_data, downsample=downsample,
+                     timing_data=timing_data)
+
+    grayimgf = np.array(grayimg, dtype=np.float32)
+
+    MIX_THRESHOLD = True
+    if MIX_THRESHOLD:
+        # Modifies mask_arr in place
+        #mask_arr = np.zeros(mask_arr.shape, dtype=np.bool) # XXX: this nukes the hocr threshold
+        create_threshold_mask(mask_arr, grayimgf, denoise_mask=denoise_mask,
+                timing_data=timing_data)
+    yield mask_arr
+
     image_arr = np.array(image)
 
-    imgf = np.array(img, dtype=np.float32)
-
-    if MIX_THRESHOLD:
-        # We don't apply any of these blurs to the hOCR mask, we want that as
-        # sharp as possible.
-
-        t = time()
-        sigma_est = mean_estimate_sigma(imgf)
-        if timing_data is not None:
-            timing_data.append(('est_1', time() - t))
-        if sigma_est > 1.0:
-            t = time()
-            imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
-            if timing_data is not None:
-                timing_data.append(('blur_1', time() - t))
-
-            #t = time()
-            #n_sigma_est = mean_estimate_sigma(imgf)
-            #time_data.append(('est_2', time() - t))
-            #if sigma_est > 1.0 and n_sigma_est > 1.0:
-            #    t = time()
-            #    imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
-            #    print('Going for second blur: n_sigma_est:',n_sigma_est)
-            #    time_data.append(('blur_2', time() - t))
-
-        t = time()
-        thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
-        if timing_data is not None:
-            timing_data.append(('threshold', time() - t))
-
-        if denoise_mask is not None and denoise_mask:
-            t = time()
-            sigma_est = mean_estimate_sigma(thres_arr)
-            if timing_data is not None:
-                timing_data.append(('est_3', time() - t))
-
-            if sigma_est > 0.1:
-                t = time()
-                thres_arr = denoise_bregman(thres_arr)
-                if timing_data is not None:
-                    timing_data.append(('denoise', time() - t))
-
-
-        thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
-
-        mask_arr |= thres_arr
+    t = time()
+    # Take foreground pixels and optimise the image by making the surrounding
+    # pixels like the foreground, allowing for more optimal compression (and
+    # higher quality foreground pixels as a result)
+    width_, height_ = image.size
+    if image.mode == 'L':
+        foreground_arr = optimise_gray(mask_arr, image_arr, width_, height_, 2)
+    else:
+        foreground_arr = optimise_rgb(mask_arr, image_arr, width_, height_, 2)
+    #foreground_arr = partial_blur(mask_arr, image_arr, sigma=3,
+    #        mode=image.mode)
+    if timing_data is not None:
+        # fg_partial_blur is kept for backwards compatibility
+        timing_data.append(('fg_partial_blur', time() - t))
+    yield foreground_arr
+    foreground_arr = None
 
     mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
 
     t = time()
-    # Take foreground pixels and create a blur around them, forcing the encoder
-    # to not mess with our foreground pixels/colours too much, finally, plug
-    # back our original foreground pixels in the blurred image.
-    foreground_arr = partial_blur(mask_arr, image_arr, sigma=3,
-            mode=image.mode)
-    if timing_data is not None:
-        timing_data.append(('fg_partial_blur', time() - t))
-
-    t = time()
-    # Take background pixels and stuff them into our foreground pixels, then
-    # restore background.
+    # Blur background pixels into our foreground pixels, effectively attempting
+    # to erase the foreground pixels (which are often of a different colour)
     # This really only needs to touch pixels where mask_inv = 0.
-    image_arr = partial_blur(mask_inv, image_arr, sigma=3,
+    background_arr = partial_blur(mask_inv, image_arr, sigma=3,
                              mode=image.mode)
     if timing_data is not None:
         timing_data.append(('bg_partial_blur', time() - t))
 
     if bg_downsample is not None:
         t = time()
-        image2 = Image.fromarray(image_arr)
+        image2 = Image.fromarray(background_arr)
         w, h = image2.size
         image2.thumbnail((w/bg_downsample, h/bg_downsample))
-        image_arr = np.array(image2)
+        background_arr = np.array(image2)
         if timing_data is not None:
             timing_data.append(('bg_downsample', time() - t))
 
-    return mask_arr, image_arr, foreground_arr
+    yield background_arr
+    return
 
 
 def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
@@ -524,22 +569,33 @@ def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, 
     return fg_img_jp2
 
 
-def encode_mrc_images(mask, np_bg, np_fg, bg_slope=None, fg_slope=None,
+def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
                       tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
     # TODO: Let's see if we can stop using roi encoding, or at least not keep
     # maskimg in memory just to create another (different) pgm file later on
 
-    maskimg = Image.fromarray(mask)
+    maskimg = Image.fromarray(next(mrc_gen))
 
     mask_img_jbig2, mask_img_png = encode_mrc_mask(maskimg, tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
 
-    bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
-                                       use_kdu=use_kdu, timing_data=timing_data)
-
+    np_fg = next(mrc_gen)
     fg_img_jp2 = encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope,
                                        tmp_dir=tmp_dir, use_kdu=use_kdu,
                                        timing_data=timing_data)
+    maskimg = None
+    np_fg = None
+
+    np_bg = next(mrc_gen)
+    bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
+                                       use_kdu=use_kdu, timing_data=timing_data)
+    np_bg = None
+
+    # XXX: probably don't need this
+    try:
+        _ = next(mrc_gen)
+    except StopIteration:
+        pass
 
     if jbig2:
         remove(mask_img_png)
