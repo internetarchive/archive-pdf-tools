@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
 
     t = time()
-    arr = threshold_image3(img)
+    arr = threshold_image3(np.array(img, dtype=np.uint8))
     print('Threshold took:', time()-t)
 
     sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=np.float)))
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     if args.with_invert_image:
         t = time()
         inverted_image = ImageOps.invert(Image.fromarray(img))
-        arr |= threshold_image3(inverted_image)
+        arr |= threshold_image3(np.array(inverted_image, dtype=np.uint8))
         print('Inverted threshold took:', time()-t)
 
         sigma_est = np.mean(estimate_sigma(np.array(arr*255, dtype=np.float)))
