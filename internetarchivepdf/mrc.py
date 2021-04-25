@@ -428,8 +428,6 @@ def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
         close(fd)
 
     mask.save(mask_img_png, compress_level=0)
-    # TODO: we want to free maskimg, but roi encoding needs it layer on....
-    # let's fix this
 
     if jbig2:
         out = subprocess.check_output(['jbig2', mask_img_png])
@@ -482,7 +480,6 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
             '-num_threads', '0',
             '-i', bg_img_tiff, '-o', bg_img_jp2,
             '-slope', str(bg_slope),
-            'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
             ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:
         subprocess.check_call(['opj_compress',
@@ -499,10 +496,7 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
     return bg_img_jp2
 
 
-# TODO: consider if we even want to use the roi encoding, it doesn't seem to
-# help much as far as I can tell. Maybe we should aim for a constant quality
-# rate rather than fixed Clayers, etc
-def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
+def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
     """
     Encode foreground image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -510,8 +504,6 @@ def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, 
     Args:
 
     * np_bg (numpy.array): Foreground image array
-    * maskimg (PIL.Image): Image mask, to be used for Region of Interest (RoI)
-      encoding.
     * bg_slope (int): Compression parameter(s), WIP
     * tmp_dir (str): path the temporary directory to write images to
     * use_kdu (bool): Whether to encode using Kakadu or OpenJPEG2000
@@ -536,24 +528,12 @@ def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, 
     fg_img = Image.fromarray(np_fg)
     fg_img.save(fg_img_tiff)
 
-    # XXX: kdu_expand wants the mask as 8 bit, not as one bit, which is the
-    # Pillow default, but with this hack I think we can force it to write 8
-    # bit without a conversion. I'd inclined to use it, but don't want this
-    # to silently break later on, so using .convert('L') for now.
-    #maskimg.mode = 'L'
-    #maskimg.save(mask_img_png + '.pgm')
-    #maskimg.mode = '1'
-
     if use_kdu:
-        maskimg.convert('L').save(mask_img_png + '.pgm')
         subprocess.check_call([KDU_COMPRESS,
             '-num_threads', '0',
             '-i', fg_img_tiff, '-o', fg_img_jp2,
             '-slope', str(fg_slope),
-            'Clayers=20', 'Creversible=yes', 'Rweight=220', 'Rlevels=5',
-             '-roi', mask_img_png + '.pgm,0.5',
             ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        remove(mask_img_png + '.pgm')
     else:
         subprocess.check_call(['opj_compress',
             '-threads', '1',
@@ -571,19 +551,15 @@ def encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope, tmp_dir=None, 
 
 def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
                       tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
-    # TODO: Let's see if we can stop using roi encoding, or at least not keep
-    # maskimg in memory just to create another (different) pgm file later on
-
     maskimg = Image.fromarray(next(mrc_gen))
 
     mask_img_jbig2, mask_img_png = encode_mrc_mask(maskimg, tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
+    maskimg = None
 
     np_fg = next(mrc_gen)
-    fg_img_jp2 = encode_mrc_foreground(np_fg, maskimg, mask_img_png, fg_slope,
-                                       tmp_dir=tmp_dir, use_kdu=use_kdu,
-                                       timing_data=timing_data)
-    maskimg = None
+    fg_img_jp2 = encode_mrc_foreground(np_fg, fg_slope, tmp_dir=tmp_dir,
+                                       use_kdu=use_kdu, timing_data=timing_data)
     np_fg = None
 
     np_bg = next(mrc_gen)
@@ -603,6 +579,6 @@ def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
     if jbig2:
         return mask_img_jbig2, bg_img_jp2, fg_img_jp2
     else:
-        # XXX: Return PNG (which mupdf will turn into ccitt) until mupdf fixes
-        # their JBIG2 support
+        # Return PNG which mupdf will turn into ccitt with
+        # save(..., deflate=True) until mupdf fixes their JBIG2 support
         return mask_img_png, bg_img_jp2, fg_img_jp2

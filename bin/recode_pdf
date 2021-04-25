@@ -61,10 +61,10 @@ if __name__ == '__main__':
                              ' kakadu. CURRENTLY COMPRESSION HARDCODED')
     parser.add_argument('--bg-slope', default=47000, type=int,
                         help='Slope for background layer.'
-                             ' Default is 47000')
-    parser.add_argument('--fg-slope', default=49000, type=int,
+                             ' Default is 44250')
+    parser.add_argument('--fg-slope', default=45000, type=int,
                         help='Slope for foreground layer.'
-                             ' Default is 49000')
+                             ' Default is 45000')
     parser.add_argument('--downsample', default=None, type=int,
                         help='Downsample entire image by factor before '
                               'processing. Default is no downscaling.')
@@ -84,12 +84,12 @@ if __name__ == '__main__':
                              'quality will not get downsampled and might use '
                              'different slope values (see --hq-bg-slope '
                              'and --hq-fg-slope)')
-    parser.add_argument('--hq-bg-slope', default=47000, type=int,
+    parser.add_argument('--hq-bg-slope', default=44000 , type=int,
                         help='High quality slope for background layer.'
-                             ' Default is 47000')
-    parser.add_argument('--hq-fg-slope', default=47000, type=int,
+                             ' Default is 44000')
+    parser.add_argument('--hq-fg-slope', default=44500, type=int,
                         help='High quality slope for foreground layer.'
-                             ' Default is 47000')
+                             ' Default is 44500')
     parser.add_argument('--metadata-url', type=str, default=None,
                         help='URL describing document, if any')
     parser.add_argument('--metadata-title', type=str, default=None,
