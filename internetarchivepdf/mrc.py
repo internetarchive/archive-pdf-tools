@@ -213,7 +213,7 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data
                     print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
                     continue
 
-                if (left < 0) or (right >= image_width) or (top < 0) or (bottom >= image_height):
+                if (left < 0) or (right > image_width) or (top < 0) or (bottom > image_height):
                     print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
                     continue
 
