@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+import fitz
+import sys
+
+from io import BytesIO
+
+from PIL import Jpeg2KImagePlugin, Image
+
+
+doc = fitz.open(sys.argv[1])
+
+fgsize = 0
+bgsize = 0
+masksize = 0
+
+for idx, page in enumerate(doc):
+    imgs = doc.getPageImageList(pno=page.number)
+
+    for imgidx, img in enumerate(imgs):
+        img_xref = img[0]
+        img_maskxref = img[1]
+
+        image = doc.xrefStreamRaw(img_xref)
+        image_io = BytesIO(image)
+        #image = doc.extractImage(img_xref)
+
+        #size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(image_io)
+
+        im = Image.open(image_io)
+        mode = im.mode
+        size = im.size
+
+        #print(size, mode)
+
+        if img_maskxref > 0:
+            mask = doc.xrefStreamRaw(img_maskxref)
+            #mask = doc.extractImage(img_maskxref)
+
+        if imgidx == 0:
+            bgsize += len(image)
+        if imgidx == 1:
+            fgsize += len(image)
+            masksize += len(mask)
+
+print('bgsize:', bgsize/1024., 'kB')
+print('fgsize:', fgsize/1024., 'kB')
+print('masksize:', masksize/1024., 'kB')
