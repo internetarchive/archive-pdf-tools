@@ -431,6 +431,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             shutil.copy(bg_f, join(img_dir, '%.6d_bg.jp2' % idx))
             shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
 
+        t = time()
         bg_contents = open(bg_f, 'rb').read()
         page.insert_image(page.rect, stream=bg_contents, mask=None,
                 overlay=False)
@@ -445,6 +446,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         remove(mask_f)
         remove(bg_f)
         remove(fg_f)
+        if timing_data is not None:
+            timing_data.append(('page_image_insertion', time() - t))
 
         reporting_page_count += 1
 
@@ -480,6 +483,11 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                                          'time-per': ms},
                            'page_time_breakdown': timing_sum})
         subprocess.check_output(reporter, input=data.encode('utf-8'))
+
+    if verbose:
+        summary = get_timing_summary(timing_data)
+        print('Total estimated time for insert_images_mrc: %dms' % sum(summary.values()))
+        print('Breakdown:', summary)
 
 
 def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
