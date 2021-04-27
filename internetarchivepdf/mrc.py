@@ -17,7 +17,7 @@ from skimage.restoration import denoise_tv_bregman, estimate_sigma
 from scipy import ndimage
 import numpy as np
 
-from optimiser import optimise_gray, optimise_rgb
+from optimiser import optimise_gray, optimise_rgb, optimise_gray2, optimise_rgb2
 from sauvola import binarise_sauvola
 
 import fitz
@@ -370,13 +370,11 @@ def create_mrc_hocr_components(image, hocr_word_data,
     # higher quality foreground pixels as a result)
     width_, height_ = image.size
     if image.mode == 'L':
-        foreground_arr = optimise_gray(mask_arr, image_arr, width_, height_, 2)
+        foreground_arr = optimise_gray2(mask_arr, image_arr, width_, height_, 3)
     else:
-        foreground_arr = optimise_rgb(mask_arr, image_arr, width_, height_, 2)
-    #foreground_arr = partial_blur(mask_arr, image_arr, sigma=3,
-    #        mode=image.mode)
+        foreground_arr = optimise_rgb2(mask_arr, image_arr, width_, height_, 3)
     if timing_data is not None:
-        # fg_partial_blur is kept for backwards compatibility
+        # The name fg_partial_blur is kept for backwards compatibility
         timing_data.append(('fg_partial_blur', time() - t))
     yield foreground_arr
     foreground_arr = None
@@ -384,16 +382,16 @@ def create_mrc_hocr_components(image, hocr_word_data,
     mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
 
     t = time()
-    # Blur background pixels into our foreground pixels, effectively attempting
-    # to erase the foreground pixels (which are often of a different colour)
-    # This really only needs to touch pixels where mask_inv = 0.
+    # Take background pixels and optimise the image by placing them where the
+    # foreground pixels are thought to be, this has the effect of reducing
+    # compression artifacts (thus improving quality) and at the same time making
+    # the image easier to compress (smaller file size)
     if image.mode == 'L':
-        background_arr = optimise_gray(mask_inv, image_arr, width_, height_, 10)
+        background_arr = optimise_gray2(mask_inv, image_arr, width_, height_, 5)
     else:
-        background_arr = optimise_rgb(mask_inv, image_arr, width_, height_, 10)
-    #background_arr = partial_blur(mask_inv, image_arr, sigma=3,
-    #                         mode=image.mode)
+        background_arr = optimise_rgb2(mask_inv, image_arr, width_, height_, 5)
     if timing_data is not None:
+        # The name bg_partial_blur is kept for backwards compatibility
         timing_data.append(('bg_partial_blur', time() - t))
 
     if bg_downsample is not None:
