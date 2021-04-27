@@ -387,8 +387,12 @@ def create_mrc_hocr_components(image, hocr_word_data,
     # Blur background pixels into our foreground pixels, effectively attempting
     # to erase the foreground pixels (which are often of a different colour)
     # This really only needs to touch pixels where mask_inv = 0.
-    background_arr = partial_blur(mask_inv, image_arr, sigma=3,
-                             mode=image.mode)
+    if image.mode == 'L':
+        background_arr = optimise_gray(mask_inv, image_arr, width_, height_, 10)
+    else:
+        background_arr = optimise_rgb(mask_inv, image_arr, width_, height_, 10)
+    #background_arr = partial_blur(mask_inv, image_arr, sigma=3,
+    #                         mode=image.mode)
     if timing_data is not None:
         timing_data.append(('bg_partial_blur', time() - t))
 
