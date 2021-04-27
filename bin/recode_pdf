@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-openjpeg', default=False, action='store_true',
                         help='Use opj_compress and opj_decompress instead of'
                              ' kakadu. CURRENTLY COMPRESSION HARDCODED')
-    parser.add_argument('--bg-slope', default=47000, type=int,
+    parser.add_argument('--bg-slope', default=44250, type=int,
                         help='Slope for background layer.'
                              ' Default is 44250')
     parser.add_argument('--fg-slope', default=45000, type=int,
@@ -84,9 +84,9 @@ if __name__ == '__main__':
                              'quality will not get downsampled and might use '
                              'different slope values (see --hq-bg-slope '
                              'and --hq-fg-slope)')
-    parser.add_argument('--hq-bg-slope', default=44000 , type=int,
+    parser.add_argument('--hq-bg-slope', default=43500 , type=int,
                         help='High quality slope for background layer.'
-                             ' Default is 44000')
+                             ' Default is 43500')
     parser.add_argument('--hq-fg-slope', default=44500, type=int,
                         help='High quality slope for foreground layer.'
                              ' Default is 44500')
