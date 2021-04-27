@@ -387,9 +387,9 @@ def create_mrc_hocr_components(image, hocr_word_data,
     # compression artifacts (thus improving quality) and at the same time making
     # the image easier to compress (smaller file size)
     if image.mode == 'L':
-        background_arr = optimise_gray2(mask_inv, image_arr, width_, height_, 5)
+        background_arr = optimise_gray2(mask_inv, image_arr, width_, height_, 10)
     else:
-        background_arr = optimise_rgb2(mask_inv, image_arr, width_, height_, 5)
+        background_arr = optimise_rgb2(mask_inv, image_arr, width_, height_, 10)
     if timing_data is not None:
         # The name bg_partial_blur is kept for backwards compatibility
         timing_data.append(('bg_partial_blur', time() - t))
