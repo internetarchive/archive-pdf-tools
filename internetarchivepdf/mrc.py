@@ -405,13 +405,13 @@ def create_mrc_hocr_components(image, hocr_word_data,
     return
 
 
-def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
+def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
     """
     Encode mask image either to JBIG2 or PNG.
 
     Args:
 
-    * mask (PIL.Image): image mask
+    * np_mask (numpy.array): Mask image array
     * tmp_dir (str): path the temporary directory to write images to
     * jbig2 (bool): Whether to encode to JBIG2 or PNG
     * timing_data (optional): Add time information to timing_data structure
@@ -420,6 +420,7 @@ def encode_mrc_mask(mask, tmp_dir=None, jbig2=True, timing_data=None):
     path, if any, the second is the png path.
     """
     t = time()
+    mask = Image.fromarray(np_mask)
 
     fd, mask_img_png = mkstemp(prefix='mask', suffix='.png', dir=tmp_dir)
     close(fd)
@@ -551,11 +552,8 @@ def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_da
 
 def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
                       tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
-    maskimg = Image.fromarray(next(mrc_gen))
-
-    mask_img_jbig2, mask_img_png = encode_mrc_mask(maskimg, tmp_dir=tmp_dir, jbig2=jbig2,
+    mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen), tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
-    maskimg = None
 
     np_fg = next(mrc_gen)
     fg_img_jp2 = encode_mrc_foreground(np_fg, fg_slope, tmp_dir=tmp_dir,
