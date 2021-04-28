@@ -69,8 +69,6 @@ def optimise_rgb(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     cdef int val_count, ys, ye, xs, xe, xx, yy
     cdef int r, g, b
 
-    # TODO: weights for distance?
-
     new_img = np.copy(img)
     for y in range(0, height):
         for x in range(0, width):
@@ -88,22 +86,22 @@ def optimise_rgb(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
                 for yy in range(ys, ye):
                     for xx in range(xs, xe):
                         if mask[yy, xx]:
-                            b += img[yy, xx, 0]
+                            r += img[yy, xx, 0]
                             g += img[yy, xx, 1]
-                            r += img[yy, xx, 2]
+                            b += img[yy, xx, 2]
                             val_count += 1
 
                 for yy in range(ys, y):
                     for xx in range(xs, x):
-                        b += new_img[yy, xx, 0]
+                        r += new_img[yy, xx, 0]
                         g += new_img[yy, xx, 1]
-                        r += new_img[yy, xx, 2]
+                        b += new_img[yy, xx, 2]
                         val_count += 1
 
                 if val_count > 0:
-                    new_img[y, x, 0] = b / val_count
+                    new_img[y, x, 0] = r / val_count
                     new_img[y, x, 1] = g / val_count
-                    new_img[y, x, 2] = r / val_count
+                    new_img[y, x, 2] = b / val_count
                 else:
                     new_img[y, x, 0] = 0
                     new_img[y, x, 1] = 0
@@ -123,12 +121,13 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     cdef int val_count, val, ys, ye, xs, xe, xx, yy
     cdef int ifysc, ifyec, iiysc, iiyec, ifxsc, ifxec, iixsc, iixec
     cdef int inc_fir_px_val, inc_fir_px_mask
+    cdef int inc_iir_px_val
 
-    # TODO: weights for distance?
     # This function computes a FIR and IIR version of the box blur filter incrementally
     # As seen above
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_val = np.zeros([width], dtype=INTDTYPE)
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_mask = np.zeros([width], dtype=INTDTYPE)
+    cdef np.ndarray[INTDTYPE_t, ndim=1] inc_iir_val = np.zeros([width], dtype=INTDTYPE)
 
     # incremental cursors that track y-dimension FIR filter window borders
     ifysc = 0
@@ -138,8 +137,6 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     iiysc = 0
     iiyec = 0
 
-    # FIXME
-    #new_img = np.empty(img.shape)
     new_img = np.copy(img)
     for y in range(0, height):
         #print('loop y')
@@ -147,19 +144,25 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         ye = min(height, y + n_size)
         # Update y-dimension FIR window
         while ifysc < ys:
-            #print('dec y')
             for x in range(0, width):
                 if mask[ifysc, x]:
                     inc_fir_val[x] -= img[ifysc, x]
                     inc_fir_mask[x] -= 1
             ifysc += 1
         while ifyec < ye:
-            #print('inc y')
             for x in range(0, width):
                 if mask[ifyec, x]:
                     inc_fir_val[x] += img[ifyec, x]
                     inc_fir_mask[x] += 1
             ifyec += 1
+        while iiysc < ys:
+            for x in range(0, width):
+                inc_iir_val[x] -= new_img[iiysc, x]
+            iiysc += 1
+        while iiyec < y:
+            for x in range(0, width):
+                inc_iir_val[x] += new_img[iiyec, x]
+            iiyec += 1
 
         # incremental cursors that track x-dimension FIR filter window borders
         ifxsc = 0
@@ -173,36 +176,37 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         inc_fir_px_val = 0
         inc_fir_px_mask = 0
 
+        # incremental IIR value
+        inc_iir_px_val = 0
+
         for x in range(0, width):
-            #print('loop x')
             xs = max(0, x - n_size)
             xe = min(width, x + n_size)
 
             # Update x-dimension FIR window
             while ifxsc < xs:
-                #print('dec x')
                 inc_fir_px_val -= inc_fir_val[ifxsc]
                 inc_fir_px_mask -= inc_fir_mask[ifxsc]
                 ifxsc += 1
             while ifxec < xe:
-                #print('inc x')
                 inc_fir_px_val += inc_fir_val[ifxec]
                 inc_fir_px_mask += inc_fir_mask[ifxec]
                 ifxec += 1
+            while iixsc < xs:
+                inc_iir_px_val -= inc_iir_val[iixsc]
+                iixsc += 1
+            while iixec < x:
+                inc_iir_px_val += inc_iir_val[iixec]
+                iixec += 1
 
-            #print('val', inc_fir_px_val)
             if not mask[y, x]:
                 val_count = 0
                 val = 0
 
-                val = inc_fir_px_val
-                val_count = inc_fir_px_mask
+                iir_window_size = (y - ys) * (x - xs)
 
-                # IIR box blur over output image
-                for yy in range(ys, y):
-                    for xx in range(xs, x):
-                        val += new_img[yy, xx]
-                        val_count += 1
+                val = inc_fir_px_val + inc_iir_px_val
+                val_count = inc_fir_px_mask + iir_window_size
 
                 if val_count > 0:
                     new_img[y, x] = val / val_count
@@ -214,8 +218,8 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     return new_img
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+#@cython.boundscheck(False)
+#@cython.wraparound(False)
 @cython.cdivision(True)
 @cython.warn.undeclared(True)
 def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
@@ -226,13 +230,16 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     cdef int r, g, b
     cdef int ifysc, ifyec, iiysc, iiyec, ifxsc, ifxec, iixsc, iixec
     cdef int inc_fir_px_r, inc_fir_px_g, inc_fir_px_b, inc_fir_px_mask
+    cdef int inc_iir_px_r, inc_iir_px_g, inc_iir_px_b
 
-    # TODO: weights for distance?
     # This function computes a FIR and IIR version of the box blur filter incrementally
     # As seen above
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_r = np.zeros([width], dtype=INTDTYPE)
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_g = np.zeros([width], dtype=INTDTYPE)
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_b = np.zeros([width], dtype=INTDTYPE)
+    cdef np.ndarray[INTDTYPE_t, ndim=1] inc_iir_r = np.zeros([width], dtype=INTDTYPE)
+    cdef np.ndarray[INTDTYPE_t, ndim=1] inc_iir_g = np.zeros([width], dtype=INTDTYPE)
+    cdef np.ndarray[INTDTYPE_t, ndim=1] inc_iir_b = np.zeros([width], dtype=INTDTYPE)
     cdef np.ndarray[INTDTYPE_t, ndim=1] inc_fir_mask = np.zeros([width], dtype=INTDTYPE)
 
     # incremental cursors that track y-dimension FIR filter window borders
@@ -243,32 +250,39 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     iiysc = 0
     iiyec = 0
 
-    # FIXME
-    #new_img = np.empty(img.shape)
     new_img = np.copy(img)
     for y in range(0, height):
-        #print('loop y')
         ys = max(0, y - n_size)
         ye = min(height, y + n_size)
         # Update y-dimension FIR window
         while ifysc < ys:
-            #print('dec y')
             for x in range(0, width):
                 if mask[ifysc, x]:
-                    inc_fir_b[x] -= img[ifysc, x, 0]
+                    inc_fir_r[x] -= img[ifysc, x, 0]
                     inc_fir_g[x] -= img[ifysc, x, 1]
-                    inc_fir_r[x] -= img[ifysc, x, 2]
+                    inc_fir_b[x] -= img[ifysc, x, 2]
                     inc_fir_mask[x] -= 1
             ifysc += 1
         while ifyec < ye:
-            #print('inc y')
             for x in range(0, width):
                 if mask[ifyec, x]:
-                    inc_fir_b[x] += img[ifyec, x, 0]
+                    inc_fir_r[x] += img[ifyec, x, 0]
                     inc_fir_g[x] += img[ifyec, x, 1]
-                    inc_fir_r[x] += img[ifyec, x, 2]
+                    inc_fir_b[x] += img[ifyec, x, 2]
                     inc_fir_mask[x] += 1
             ifyec += 1
+        while iiysc < ys:
+            for x in range(0, width):
+                inc_iir_r[x] -= new_img[iiysc, x, 0]
+                inc_iir_g[x] -= new_img[iiysc, x, 1]
+                inc_iir_b[x] -= new_img[iiysc, x, 2]
+            iiysc += 1
+        while iiyec < y:
+            for x in range(0, width):
+                inc_iir_r[x] += new_img[iiyec, x, 0]
+                inc_iir_g[x] += new_img[iiyec, x, 1]
+                inc_iir_b[x] += new_img[iiyec, x, 2]
+            iiyec += 1
 
         # incremental cursors that track x-dimension FIR filter window borders
         ifxsc = 0
@@ -284,49 +298,53 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         inc_fir_px_b = 0
         inc_fir_px_mask = 0
 
+        # incremental IIR value
+        inc_iir_px_r = 0
+        inc_iir_px_g = 0
+        inc_iir_px_b = 0
+
         for x in range(0, width):
-            #print('loop x')
             xs = max(0, x - n_size)
             xe = min(width, x + n_size)
 
             # Update x-dimension FIR window
             while ifxsc < xs:
-                #print('dec x')
-                inc_fir_px_b -= inc_fir_b[ifxsc]
-                inc_fir_px_g -= inc_fir_g[ifxsc]
                 inc_fir_px_r -= inc_fir_r[ifxsc]
+                inc_fir_px_g -= inc_fir_g[ifxsc]
+                inc_fir_px_b -= inc_fir_b[ifxsc]
                 inc_fir_px_mask -= inc_fir_mask[ifxsc]
                 ifxsc += 1
             while ifxec < xe:
-                #print('inc x')
-                inc_fir_px_b += inc_fir_b[ifxec]
-                inc_fir_px_g += inc_fir_g[ifxec]
                 inc_fir_px_r += inc_fir_r[ifxec]
+                inc_fir_px_g += inc_fir_g[ifxec]
+                inc_fir_px_b += inc_fir_b[ifxec]
                 inc_fir_px_mask += inc_fir_mask[ifxec]
                 ifxec += 1
+            while iixsc < xs:
+                inc_iir_px_r -= inc_iir_r[iixsc]
+                inc_iir_px_g -= inc_iir_g[iixsc]
+                inc_iir_px_b -= inc_iir_b[iixsc]
+                iixsc += 1
+            while iixec < x:
+                inc_iir_px_r += inc_iir_r[iixec]
+                inc_iir_px_g += inc_iir_g[iixec]
+                inc_iir_px_b += inc_iir_b[iixec]
+                iixec += 1
 
-            #print('val', inc_fir_px_val)
             if not mask[y, x]:
                 val_count = 0
-                r = 0
 
-                r = inc_fir_px_r
-                g = inc_fir_px_g
-                b = inc_fir_px_b
-                val_count = inc_fir_px_mask
+                iir_window_size = (y - ys) * (x - xs)
 
-                # IIR box blur over output image
-                for yy in range(ys, y):
-                    for xx in range(xs, x):
-                        b += new_img[yy, xx, 0]
-                        g += new_img[yy, xx, 1]
-                        r += new_img[yy, xx, 2]
-                        val_count += 1
+                b = inc_fir_px_b + inc_iir_px_b
+                g = inc_fir_px_g + inc_iir_px_g
+                r = inc_fir_px_r + inc_iir_px_r
+                val_count = inc_fir_px_mask + iir_window_size
 
                 if val_count > 0:
-                    new_img[y, x, 0] = b / val_count
+                    new_img[y, x, 0] = r / val_count
                     new_img[y, x, 1] = g / val_count
-                    new_img[y, x, 2] = r / val_count
+                    new_img[y, x, 2] = b / val_count
                 else:
                     new_img[y, x, 0] = 0
                     new_img[y, x, 1] = 0
