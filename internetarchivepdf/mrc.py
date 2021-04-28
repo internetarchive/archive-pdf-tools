@@ -38,19 +38,14 @@ def mean_estimate_sigma(arr):
         warnings.simplefilter('ignore')
         return np.mean(estimate_sigma(arr))
 
-def invert_mask(mask):
-    return mask ^ np.ones(mask.shape, dtype=bool)
 
-
-def threshold_image(pil_image, rev=False, otsu=False, block_size=9):
+def threshold_image(img, rev=False, otsu=False, block_size=9):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
     the text more readable. 
 
     Returns the thresholded np image array
     """
-    img = np.array(pil_image)
-
     if otsu:
         try:
             binary_otsu = threshold_otsu(img)
@@ -74,10 +69,9 @@ def threshold_image(pil_image, rev=False, otsu=False, block_size=9):
     return binary_img
 
 
-
-def threshold_image2(pil_image):
-    local = threshold_image(pil_image)
-    otsu = threshold_image(pil_image, otsu=True)
+def threshold_image2(np_image):
+    local = threshold_image(np_image)
+    otsu = threshold_image(np_image, otsu=True)
 
     return local & otsu
 
@@ -190,6 +184,8 @@ def partial_boxblur(mask, fg, size=5, mode=None):
 
 def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data=None):
     image_width, image_height = img.size
+    np_img = np.array(img)
+
     t = time()
     for paragraphs in hocr_word_data:
         for lines in paragraphs['lines']:
@@ -203,11 +199,10 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data
                     if left == right or top == bottom:
                         continue
 
-                    wordimg = img.crop((left, top, right, bottom))
+                    np_wordimg = np_img[top:bottom,left:right]
                 else:
-                    # TODO: did I just always fuck this up?
                     left, top, right, bottom = [int(x) for x in word['bbox']]
-                    wordimg = img.crop(word['bbox'])
+                    np_wordimg = np_img[top:bottom,left:right]
 
                 if (left >= right) or (top >= bottom):
                     print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
@@ -217,16 +212,15 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data
                     print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
                     continue
 
-                thres = threshold_image2(wordimg)
-                sigma_est = mean_estimate_sigma(thres)
+                thres = threshold_image2(np_wordimg)
 
+                sigma_est = mean_estimate_sigma(thres)
                 ones = np.count_nonzero(thres)
-                #zeroes = np.count_nonzero(np.invert(thres))
 
                 if sigma_est > 0.1:
                     # Invert. (TODO: we should do this in a more efficient
                     # manner)
-                    thres_i = threshold_image2(ImageOps.invert(wordimg))
+                    thres_i = threshold_image2(np.invert(np_wordimg))
                     sigma_est_i = mean_estimate_sigma(thres_i)
                     ones_i = np.count_nonzero(thres_i)
 
