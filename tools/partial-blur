@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from internetarchivepdf.mrc import partial_blur, partial_boxblur
-from optimiser import optimise_gray, optimise_rgb
+from optimiser import optimise_gray, optimise_rgb, optimise_gray2, optimise_rgb2
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('PDF recoder partial blurrer')
@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-optimise', default=False, action='store_true')
     parser.add_argument('--sigma', default=1, type=int)
     parser.add_argument('--size', default=1, type=int)
+    parser.add_argument('--optimise-size', default=3, type=int)
     parser.add_argument('infile', nargs='?', default=None)
     parser.add_argument('maskfile', nargs='?', default=None)
     parser.add_argument('outfile', nargs='?', default=None)
@@ -29,11 +30,11 @@ if __name__ == '__main__':
 
     t = time()
     if args.use_optimise:
-        height, width = img_arr.shape
+        height, width = img_arr.shape[0:2]
         if img.mode == 'L':
-            arr = optimise_gray(mask_arr, img_arr, width, height, 2)
+            arr = optimise_gray2(mask_arr, img_arr, width, height, args.optimise_size)
         else:
-            arr = optimise_rgb(mask_arr, img_arr, width, height, 2)
+            arr = optimise_rgb2(mask_arr, img_arr, width, height, args.optimise_size)
     elif args.use_boxblur:
         arr = partial_boxblur(mask_arr, img_arr, size=args.size, mode=img.mode)
     else:
