@@ -486,8 +486,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
     if verbose:
         summary = get_timing_summary(timing_data)
-        print('Total estimated time for insert_images_mrc: %dms' % sum(summary.values()))
-        print('Breakdown:', summary)
+        print('MRC time breakdown:', summary)
 
 
 def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
