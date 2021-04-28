@@ -420,7 +420,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         # TODO: maybe call the encode_mrc_{mask,foreground,background}
         # separately from here so that we can free the arrays sooner (and even
         # get the images separately from the create_mrc_hocr_components call)
-        mask_f, bg_f, fg_f = encode_mrc_images(mrc_gen,
+        mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
                 bg_slope=hq_bg_slope if render_hq else bg_slope,
                 fg_slope=hq_fg_slope if render_hq else fg_slope,
                 tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
@@ -433,14 +433,20 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         t = time()
         bg_contents = open(bg_f, 'rb').read()
+        # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
+        # performance regression in PyMuPDF - it does nothing harmful if your
+        # PyMuPDF is not patched though (at least per 1.18.3)
         page.insert_image(page.rect, stream=bg_contents, mask=None,
-                overlay=False)
+                overlay=False, ww=bg_s[0], hh=bg_s[1], alphaalpha=0)
 
         fg_contents = open(fg_f, 'rb').read()
         mask_contents = open(mask_f, 'rb').read()
 
+        # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
+        # performance regression in PyMuPDF - it does nothing harmful if your
+        # PyMuPDF is not patched though (at least per 1.18.3)
         page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
-                overlay=True)
+                overlay=True, ww=fg_s[0], hh=fg_s[1], alphaalpha=0)
 
         # Remove leftover files
         remove(mask_f)

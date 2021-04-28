@@ -554,11 +554,13 @@ def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
     np_fg = next(mrc_gen)
     fg_img_jp2 = encode_mrc_foreground(np_fg, fg_slope, tmp_dir=tmp_dir,
                                        use_kdu=use_kdu, timing_data=timing_data)
+    fg_h, fg_w = np_fg.shape[0:2]
     np_fg = None
 
     np_bg = next(mrc_gen)
     bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
                                        use_kdu=use_kdu, timing_data=timing_data)
+    bg_h, bg_w = np_bg.shape[0:2]
     np_bg = None
 
     # XXX: probably don't need this
@@ -571,8 +573,9 @@ def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
         remove(mask_img_png)
 
     if jbig2:
-        return mask_img_jbig2, bg_img_jp2, fg_img_jp2
+        return mask_img_jbig2, bg_img_jp2, (bg_w, bg_h), fg_img_jp2, (fg_w, fg_h)
     else:
         # Return PNG which mupdf will turn into ccitt with
         # save(..., deflate=True) until mupdf fixes their JBIG2 support
-        return mask_img_png, bg_img_jp2, fg_img_jp2
+        #return mask_img_png, bg_img_jp2, fg_img_jp2
+        return mask_img_png, bg_img_jp2, (bg_w, bg_h), fg_img_jp2, (fg_w, fg_h)
