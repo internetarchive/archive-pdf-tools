@@ -315,7 +315,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
         verbose=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
-        use_openjpeg=False):
+        use_openjpeg=False, errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -412,7 +412,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
                 downsample=downsample, bg_downsample=None if render_hq else
                 bg_downsample, denoise_mask=denoise_mask,
-                timing_data=timing_data)
+                timing_data=timing_data, errors=errors)
 
 
         # TODO: keep all these files on disk, and insert them into the pager
@@ -977,7 +977,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           report_every=report_every,
                           stop_after=stop,
                           grayscale_pdf=grayscale_pdf,
-                          use_openjpeg=use_openjpeg)
+                          use_openjpeg=use_openjpeg,
+                          errors=errors)
     elif image_mode in (0, 1):
         # TODO: Update this codepath
         insert_images(in_pdf, outdoc, mode=image_mode,

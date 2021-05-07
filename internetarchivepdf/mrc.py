@@ -316,7 +316,8 @@ def create_threshold_mask(mask_arr, imgf, denoise_mask=None, timing_data=None):
 def create_mrc_hocr_components(image, hocr_word_data,
                                downsample=None,
                                bg_downsample=None,
-                               denoise_mask=None, timing_data=None):
+                               denoise_mask=None, timing_data=None,
+                               errors=None):
     """
     Create the MRC components: mask, foreground and background
 
@@ -329,6 +330,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
     * denoise_mask (bool): Whether to denoise the image if it is deemed too
       noisy
     * timing_data: Optional timing data to log individual timing data to.
+    * errors: Optional argument (of type set) with encountered runtime errors
 
     Returns a tuple of the components, as numpy arrays: (mask, foreground,
     background)
@@ -392,8 +394,15 @@ def create_mrc_hocr_components(image, hocr_word_data,
         t = time()
         image2 = Image.fromarray(background_arr)
         w, h = image2.size
-        image2.thumbnail((w/bg_downsample, h/bg_downsample))
-        background_arr = np.array(image2)
+        w_downsample = w / bg_downsample
+        h_downsample = h / bg_downsample
+        if w_downsample > 0 and h_downsample > 0:
+            image2.thumbnail((w_downsample, h_downsample))
+            background_arr = np.array(image2)
+        else:
+            if errors is not None:
+                errors.add(RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE)
+
         if timing_data is not None:
             timing_data.append(('bg_downsample', time() - t))
 
