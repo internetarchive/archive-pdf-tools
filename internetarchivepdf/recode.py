@@ -236,9 +236,11 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                         print('Guessing DPI:', dpi)
                     page_width = imwidth / (page_dpi / 72)
 
-                # If even guessing fails, let's hard fail still for now
+                # If even guessing fails, let's just set minimal values since
+                # this typically only happens for really tiny images
                 if page_width <= PDFA_MIN_UNITS or page_width >= PDFA_MAX_UNITS:
-                    raise ValueError('Cannot find a fitting page boundary')
+                    page_width = PDFA_MIN_UNITS + 1
+                    page_height = PDFA_MIN_UNITS + 1
 
                 # Add warning/error
                 if errors is not None:

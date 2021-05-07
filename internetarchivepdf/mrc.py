@@ -24,6 +24,8 @@ import fitz
 
 fitz.TOOLS.set_icc(True) # For good measure, not required
 
+from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE,)
+
 
 """
 """
@@ -394,8 +396,8 @@ def create_mrc_hocr_components(image, hocr_word_data,
         t = time()
         image2 = Image.fromarray(background_arr)
         w, h = image2.size
-        w_downsample = w / bg_downsample
-        h_downsample = h / bg_downsample
+        w_downsample = int(w / bg_downsample)
+        h_downsample = int(h / bg_downsample)
         if w_downsample > 0 and h_downsample > 0:
             image2.thumbnail((w_downsample, h_downsample))
             background_arr = np.array(image2)
