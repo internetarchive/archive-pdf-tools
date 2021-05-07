@@ -281,14 +281,14 @@ def get_timing_summary(timing_data):
     sums = {}
 
     # We expect this to always happen per page
-    fg_partial_blur_c = 0
+    image_load_c = 0
 
     for v in timing_data:
         key = v[0]
         val = v[1]
 
-        if key == 'fg_partial_blur':
-            fg_partial_blur_c += 1
+        if key == 'image_load':
+            image_load_c += 1
 
         if key not in sums:
             sums[key] = 0.
@@ -296,7 +296,7 @@ def get_timing_summary(timing_data):
         sums[key] += val
 
     for k in sums.keys():
-        sums[k] = sums[k] / fg_partial_blur_c
+        sums[k] = sums[k] / image_load_c
 
     for k in sums.keys():
         # For statsd, in ms
