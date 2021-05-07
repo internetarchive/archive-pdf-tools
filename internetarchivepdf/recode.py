@@ -26,7 +26,7 @@ import fitz
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)
 from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_hocr_components, \
-        encode_mrc_images
+        encode_mrc_images, encode_mrc_mask
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
@@ -409,51 +409,70 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             downsampled = True
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
-        mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
-                downsample=downsample, bg_downsample=None if render_hq else
-                bg_downsample, denoise_mask=denoise_mask,
-                timing_data=timing_data, errors=errors)
+
+        if image.mode == '1':
+            ww, hh = image.size
+            mask_jb2, mask_png = encode_mrc_mask(np.array(image), tmp_dir=tmp_dir,
+                    jbig2=jbig2, timing_data=timing_data)
+
+            t = time()
+
+            if jbig2:
+                mask_contents = open(mask_jb2, 'rb').read()
+            else:
+                mask_contents = open(mask_png, 'rb').read()
+            page.insert_image(page.rect, stream=mask_contents,
+                    ww=ww, hh=hh, alphaalpha=0)
+
+            if timing_data is not None:
+                timing_data.append(('page_image_insertion', time() - t))
+
+        else:
+            mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
+                    downsample=downsample, bg_downsample=None if render_hq else
+                    bg_downsample, denoise_mask=denoise_mask,
+                    timing_data=timing_data, errors=errors)
 
 
-        # TODO: keep all these files on disk, and insert them into the pager
-        # later? maybe? or just saveIncr()
-        # TODO: maybe call the encode_mrc_{mask,foreground,background}
-        # separately from here so that we can free the arrays sooner (and even
-        # get the images separately from the create_mrc_hocr_components call)
-        mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
-                bg_slope=hq_bg_slope if render_hq else bg_slope,
-                fg_slope=hq_fg_slope if render_hq else fg_slope,
-                tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
-                use_kdu=not use_openjpeg)
+            # TODO: keep all these files on disk, and insert them into the pager
+            # later? maybe? or just saveIncr()
+            # TODO: maybe call the encode_mrc_{mask,foreground,background}
+            # separately from here so that we can free the arrays sooner (and even
+            # get the images separately from the create_mrc_hocr_components call)
+            mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
+                    bg_slope=hq_bg_slope if render_hq else bg_slope,
+                    fg_slope=hq_fg_slope if render_hq else fg_slope,
+                    tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
+                    use_kdu=not use_openjpeg)
 
-        if img_dir is not None:
-            shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
-            shutil.copy(bg_f, join(img_dir, '%.6d_bg.jp2' % idx))
-            shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
+            if img_dir is not None:
+                shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
+                shutil.copy(bg_f, join(img_dir, '%.6d_bg.jp2' % idx))
+                shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
 
-        t = time()
-        bg_contents = open(bg_f, 'rb').read()
-        # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
-        # performance regression in PyMuPDF - it does nothing harmful if your
-        # PyMuPDF is not patched though (at least per 1.18.3)
-        page.insert_image(page.rect, stream=bg_contents, mask=None,
-                overlay=False, ww=bg_s[0], hh=bg_s[1], alphaalpha=0)
+            t = time()
+            bg_contents = open(bg_f, 'rb').read()
+            # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
+            # performance regression in PyMuPDF - it does nothing harmful if your
+            # PyMuPDF is not patched though (at least per 1.18.3)
+            page.insert_image(page.rect, stream=bg_contents, mask=None,
+                    overlay=False, ww=bg_s[0], hh=bg_s[1], alphaalpha=0)
 
-        fg_contents = open(fg_f, 'rb').read()
-        mask_contents = open(mask_f, 'rb').read()
+            fg_contents = open(fg_f, 'rb').read()
+            mask_contents = open(mask_f, 'rb').read()
 
-        # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
-        # performance regression in PyMuPDF - it does nothing harmful if your
-        # PyMuPDF is not patched though (at least per 1.18.3)
-        page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
-                overlay=True, ww=fg_s[0], hh=fg_s[1], alphaalpha=0)
+            # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
+            # performance regression in PyMuPDF - it does nothing harmful if your
+            # PyMuPDF is not patched though (at least per 1.18.3)
+            page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
+                    overlay=True, ww=fg_s[0], hh=fg_s[1], alphaalpha=0)
 
-        # Remove leftover files
-        remove(mask_f)
-        remove(bg_f)
-        remove(fg_f)
-        if timing_data is not None:
-            timing_data.append(('page_image_insertion', time() - t))
+            # Remove leftover files
+            remove(mask_f)
+            remove(bg_f)
+            remove(fg_f)
+            if timing_data is not None:
+                timing_data.append(('page_image_insertion', time() - t))
 
         reporting_page_count += 1
 
