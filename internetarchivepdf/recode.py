@@ -344,6 +344,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         if from_pdf is not None:
             # TODO: Support more images and their masks, if they exist (and
             # write them to the right place in the PDF)
+            t = time()
+
             img = from_pdf[idx].getImageList()[0]
             xref = img[0]
             maskxref = img[1]
@@ -354,6 +356,9 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             image = Image.open(imgfd)
             image.load()
             imgfd.close()
+
+            if timing_data is not None:
+                timing_data.append(('image_load', time()-t))
         else:
             t = time()
             # Do not subtract skipped pages here
