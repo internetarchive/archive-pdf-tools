@@ -434,7 +434,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             remove(mask_png)
 
             page.insert_image(page.rect, stream=mask_contents,
-                    ww=ww, hh=hh, alphaalpha=0)
+                    width=ww, height=hh, alpha=0)
 
             if timing_data is not None:
                 timing_data.append(('page_image_insertion', time() - t))
@@ -464,20 +464,16 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
             t = time()
             bg_contents = open(bg_f, 'rb').read()
-            # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
-            # performance regression in PyMuPDF - it does nothing harmful if your
-            # PyMuPDF is not patched though (at least per 1.18.3)
+            # Tell PyMuPDF about width/height/alpha since it's faster this way
             page.insert_image(page.rect, stream=bg_contents, mask=None,
-                    overlay=False, ww=bg_s[0], hh=bg_s[1], alphaalpha=0)
+                    overlay=False, width=bg_s[0], height=bg_s[1], alpha=0)
 
             fg_contents = open(fg_f, 'rb').read()
             mask_contents = open(mask_f, 'rb').read()
 
-            # XXX: specifiying ww=, hh=, alphaalpha here is a hack to work around a
-            # performance regression in PyMuPDF - it does nothing harmful if your
-            # PyMuPDF is not patched though (at least per 1.18.3)
+            # Tell PyMuPDF about width/height/alpha since it's faster this way
             page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
-                    overlay=True, ww=fg_s[0], hh=fg_s[1], alphaalpha=0)
+                    overlay=True, width=fg_s[0], height=fg_s[1], alpha=0)
 
             # Remove leftover files
             remove(mask_f)
