@@ -561,7 +561,7 @@ def write_pdfa(to_pdf):
 >>
 """)
     icc = pkg_resources.resource_string('internetarchivepdf', "data/tmp.icc")
-    to_pdf.updateStream(srgbxref, icc, new=True)
+    to_pdf.update_stream(srgbxref, icc, new=True)
 
     intentxref = to_pdf.get_new_xref()
     to_pdf.update_object(intentxref, """
