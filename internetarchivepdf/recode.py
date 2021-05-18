@@ -426,8 +426,13 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
             if jbig2:
                 mask_contents = open(mask_jb2, 'rb').read()
+                remove(mask_jb2)
             else:
                 mask_contents = open(mask_png, 'rb').read()
+
+            # We currently always return the PNG file
+            remove(mask_png)
+
             page.insert_image(page.rect, stream=mask_contents,
                     ww=ww, hh=hh, alphaalpha=0)
 
