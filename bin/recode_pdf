@@ -90,6 +90,10 @@ if __name__ == '__main__':
     parser.add_argument('--hq-fg-slope', default=44500, type=int,
                         help='High quality slope for foreground layer.'
                              ' Default is 44500')
+    parser.add_argument('--render-text-lines', action='store_true',
+                        default=False,
+                        help='Whether to render the text line visible instead '
+                             'of invisible')
     parser.add_argument('--metadata-url', type=str, default=None,
                         help='URL describing document, if any')
     parser.add_argument('--metadata-title', type=str, default=None,
@@ -135,6 +139,7 @@ if __name__ == '__main__':
            args.denoise_mask,
            args.hq_pages,
            args.hq_bg_slope, args.hq_fg_slope,
+           args.render_text_lines,
            args.metadata_url, args.metadata_title, args.metadata_author,
            args.metadata_creator, args.metadata_language,
            args.metadata_subject, args.metadata_creatortool)

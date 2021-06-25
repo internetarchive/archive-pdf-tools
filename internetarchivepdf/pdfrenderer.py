@@ -32,8 +32,9 @@ SOFTWARE = 'Archive.org hOCR to PDF renderer (based on Tesseract)'
 
 class TessPDFRenderer(object):
 
-    def __init__(self, textonly=True, image_list=None):
+    def __init__(self, textonly=True, image_list=None, render_text_lines=False):
         self.textonly = textonly
+        self.render_text_lines = render_text_lines
 
         self._obj = 0
         self._offsets = [0]
@@ -101,9 +102,11 @@ class TessPDFRenderer(object):
                 continue
 
 
-            # Use this instead of b'BT\n3 Tr' if you want to see the text
-            #pdf_str += b'BT\n0 Tr'
-            pdf_str += b'BT\n3 Tr'
+            if self.render_text_lines:
+                # Use this instead of b'BT\n3 Tr' if you want to see the text
+                pdf_str += b'BT\n0 Tr'
+            else:
+                pdf_str += b'BT\n3 Tr'
             old_fontsize = 0
             new_block = True
 

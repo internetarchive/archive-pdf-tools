@@ -120,11 +120,12 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
         image_files=None, dpi=None, skip_pages=None, dpi_pages=None,
         reporter=None,
         verbose=False, stop_after=None,
+        render_text_lines=False,
         tmp_dir=None,
         errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
-    render = TessPDFRenderer()
+    render = TessPDFRenderer(render_text_lines=render_text_lines)
     render.BeginDocumentHandler()
 
     skipped_pages = 0
@@ -887,6 +888,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         denoise_mask=None,
         hq_pages=None,
         hq_bg_slope=47000, hq_fg_slope=47000,
+        render_text_lines=False,
         metadata_url=None, metadata_title=None, metadata_author=None,
         metadata_creator=None, metadata_language=None,
         metadata_subject=None, metadata_creatortool=None):
@@ -951,6 +953,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
             skip_pages=skip_pages, dpi_pages=dpi_pages,
             reporter=reporter,
             verbose=verbose, stop_after=stop,
+            render_text_lines=render_text_lines,
             tmp_dir=tmp_dir,
             errors=errors)
 
