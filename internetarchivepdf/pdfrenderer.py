@@ -163,11 +163,14 @@ class TessPDFRenderer(object):
                     old_writing_direction = writing_direction
 
                     fontsize = word['fontsize']
-                    if hocr_ppi is not None and fontsize:
-                        fontsize = int(fontsize * (72./hocr_ppi))
+
                     kDefaultFontsize = 8;
                     if fontsize <= 0:
-                        fontsize = kDefaultFontsize
+                        line_height = abs(line_y2 - line_y1)
+                        fontsize = line_height
+
+                        if fontsize <= 0:
+                            fontsize = kDefaultFontsize
 
                     if fontsize != old_fontsize:
                         pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';

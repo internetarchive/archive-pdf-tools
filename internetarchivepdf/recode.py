@@ -254,7 +254,13 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             width = page_width
             height = imheight * scaler
 
-        word_data = hocr_page_to_word_data(hocr_page, scaler)
+        font_scaler = 1
+        if hocr_dpi is not None:
+            font_scaler = hocr_dpi / ppi
+        else:
+            font_scaler = 72. / ppi
+
+        word_data = hocr_page_to_word_data(hocr_page, font_scaler)
         render.AddImageHandler(word_data, width, height, ppi=ppi, hocr_ppi=hocr_dpi)
 
         reporting_page_count += 1
