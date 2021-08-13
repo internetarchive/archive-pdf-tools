@@ -25,7 +25,8 @@ import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)
-from internetarchivepdf.mrc import KDU_EXPAND, create_mrc_hocr_components, \
+from internetarchivepdf.mrc import KDU_EXPAND, OPJ_DECOMPRESS, \
+        create_mrc_hocr_components, \
         encode_mrc_images, encode_mrc_mask
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
@@ -391,12 +392,12 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                             stdout=subprocess.DEVNULL)
                 else:
                     if downsample is not None:
-                        subprocess.check_call(['opj_decompress', '-r',
+                        subprocess.check_call([OPJ_DECOMPRESS, '-r',
                             str(downsample-1), '-i', imgfile, '-o',
                             tiff_in], stderr=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL)
                     else:
-                        subprocess.check_call(['opj_decompress', '-i', imgfile, '-o',
+                        subprocess.check_call([OPJ_DECOMPRESS, '-i', imgfile, '-o',
                             tiff_in], stderr=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL)
 

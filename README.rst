@@ -2,7 +2,7 @@ Internet Archive PDF tools
 ##########################
 
 :authors: - Merlijn Wajer <merlijn@archive.org>
-:date: 2020-11-19 11:00
+:date: 2021-08-14 18:00
 
 This repository contains a library to perform MRC (Mixed Raster Content)
 compression on images [*]_, which offers lossy high compression of images, in
@@ -70,6 +70,16 @@ Not well tested features
 * "Recoding" an existing PDF, extracting the images and creating a new PDF with
   the images from the existing PDF is not well tested. This works OK if every
   PDF page just has a single image.
+
+
+Known issues
+============
+
+* Using ``--image-mode 0`` and ``--image-mode 1`` is currently broken, so only
+  MRC or no images is supported.
+* It is not possible to recode/compress a PDF without hOCR files. This will be
+  addressed in the future, since it should not be a problem to generate lack
+  hOCR data.
 
 
 Planned features
@@ -140,11 +150,6 @@ text layer::
     Processed 1 pages at 11.40 seconds/page
     Compression ratio: 249.876613
 
-
-MRC Examples
-------------
-
-(For images, see the ``doc`` branch of this repository)
 
 Examining the results
 ---------------------

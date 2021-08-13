@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+import sys
 from internetarchivepdf.recode import recode
+from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, OPJ_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
+from shutil import which
 
 
 if __name__ == '__main__':
@@ -58,7 +61,8 @@ if __name__ == '__main__':
     # opj_compress
     parser.add_argument('--use-openjpeg', default=False, action='store_true',
                         help='Use opj_compress and opj_decompress instead of'
-                             ' kakadu. CURRENTLY COMPRESSION HARDCODED')
+                             ' kakadu. **Currently the compression quality is'
+                             ' hardcoded**')
     parser.add_argument('--bg-slope', default=44250, type=int,
                         help='Slope for background layer.'
                              ' Default is 44250')
@@ -125,6 +129,17 @@ if __name__ == '__main__':
                          'are mutually exclusive\n\n')
         parser.print_help()
         sys.exit(1)
+
+    if args.image_mode == IMAGE_MODE_MRC:
+        if args.use_openjpeg:
+            if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
+                sys.stderr.write('***** Error: --use-openjpeg is provided but opj_compress and opj_decompress are not found in $PATH\n')
+                sys.exit(1)
+        else:
+            if not (which(KDU_EXPAND) and which(KDU_COMPRESS)):
+                sys.stderr.write('***** Error: kakadu is requested (this is the default, pass --use-openjpeg for the alternative compression), but kdu_expand and kdu_compress are not found in $PATH\n')
+                sys.exit(1)
+
 
     res = recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
            args.scandata_file, args.out_pdf, args.out_dir,

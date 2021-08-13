@@ -32,6 +32,8 @@ from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSA
 
 KDU_COMPRESS = 'kdu_compress'
 KDU_EXPAND = 'kdu_expand'
+OPJ_COMPRESS = 'opj_compress'
+OPJ_DECOMPRESS = 'opj_decompress'
 
 
 # skimage throws useless UserWarnings in various functions
@@ -490,7 +492,7 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
             '-slope', str(bg_slope),
             ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:
-        subprocess.check_call(['opj_compress',
+        subprocess.check_call([OPJ_COMPRESS,
             '-i', bg_img_tiff, '-o', bg_img_jp2,
             '-threads', '1',
             # Use constant reduction rate here (not psnr)
@@ -543,7 +545,7 @@ def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_da
             '-slope', str(fg_slope),
             ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:
-        subprocess.check_call(['opj_compress',
+        subprocess.check_call([OPJ_COMPRESS,
             '-threads', '1',
             '-i', fg_img_tiff, '-o', fg_img_jp2,
             # Use PSNR here
