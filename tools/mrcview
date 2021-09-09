@@ -15,22 +15,22 @@ doc = fitz.open(sys.argv[1])
 newdoc = fitz.open()
 
 def add_image_page(inpage, outdoc, img_raw, stream=True):
-    p = outdoc.newPage(width=inpage.rect.width, height=inpage.rect.height)
-    p.insertImage(p.rect, stream=img_raw)
+    p = outdoc.new_page(width=inpage.rect.width, height=inpage.rect.height)
+    p.insert_image(p.rect, stream=img_raw)
 
 
 for idx, page in enumerate(doc):
-    imgs = doc.getPageImageList(pno=page.number)
+    imgs = doc.get_page_images(pno=page.number)
 
     for imgidx, img in enumerate(imgs):
         img_xref = img[0]
         img_maskxref = img[1]
 
-        image = doc.xrefStreamRaw(img_xref)
+        image = doc.xref_stream_raw(img_xref)
 
         add_image_page(page, newdoc, image)
         if img_maskxref > 0:
-            mask = doc.extractImage(img_maskxref)
+            mask = doc.extract_image(img_maskxref)
             stream = mask['image']
             add_image_page(page, newdoc, stream)
 
