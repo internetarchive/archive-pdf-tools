@@ -10,10 +10,21 @@ from shutil import which
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser(
             description='PDF recoder version %s.' % VERSION +
                         ' Compresses PDFs with images and inserts text layers '
                         ' based on hOCR input files.')
+
+    # For Python 3.6, 3.7
+    class ExtendAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            items = getattr(namespace, self.dest) or []
+            items.extend(values)
+            setattr(namespace, self.dest, items)
+    parser.register('action', 'extend', ExtendAction)
+    # End for Python 3.6, 3.7
+
     parser.add_argument('-P', '--from-pdf', type=str, default=None,
                         help='Input PDF (containing images) to recode')
     parser.add_argument('-I', '--from-imagestack', type=str, default=None,
