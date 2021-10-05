@@ -391,7 +391,7 @@ class TessPDFRenderer(object):
         stream = bytes()
 
         if False: # if !textonly
-            xobject += b'/XObject << /Im1 ' + str((obj_ + 2)).encode('ascii') + b' 0 R >>\n'
+            xobject += b'/XObject << /Im1 ' + str((self._obj + 2)).encode('ascii') + b' 0 R >>\n'
 
         stream += (
           str(self._obj).encode('ascii') + b' 0 obj\n'
