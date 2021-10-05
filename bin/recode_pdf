@@ -84,12 +84,16 @@ if __name__ == '__main__':
                         help='Background compression flags for JPEG2000 '
                              'compression. '
                               'Default for kakadu is \'-slope 44250\','
-                              'default for grok/openjpeg is \'-q 30\'')
+                              'default for grok/openjpeg is \'-q 30\'.'
+                             'Pass with quoted and with a space at the start:'
+                             '\' --flag value\'')
     parser.add_argument('--fg-compression-flags', default=None, type=str,
                         help='Foreground compression flags for JPEG2000 '
                              'compression. '
                               'Default for kakadu is \'-slope 44500\','
-                              'default for grok/openjpeg is \'-q 30\'')
+                              'default for grok/openjpeg is \'-q 30\'.'
+                             'Pass with quoted and with a space at the start:'
+                             '\' --flag value\'')
     parser.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
                         type=str,
                         choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
@@ -120,12 +124,16 @@ if __name__ == '__main__':
                         help='High quality background compression flags for '
                              'JPEG2000 compression. '
                              'Default for kakadu is \'-slope 43500\','
-                             'default for grok/openjpeg is \'-q 40\'')
+                             'default for grok/openjpeg is \'-q 40\'.'
+                             'Pass with quoted and with a space at the start:'
+                             '\' --flag value\'')
     parser.add_argument('--hq-fg-compression-flags', type=str,
                         help='High quality foreground compression flags for '
-                              'JPEG2000 compression. '
-                              'Default for kakadu is \'-slope 44500\','
-                              'default for grok/openjpeg is \'-q 30\'')
+                             'JPEG2000 compression. '
+                             'Default for kakadu is \'-slope 44500\','
+                             'default for grok/openjpeg is \'-q 30\'.'
+                             'Pass with quoted and with a space at the start:'
+                             '\' --flag value\'')
     parser.add_argument('--render-text-lines', action='store_true',
                         default=False,
                         help='Whether to render the text line visible instead '
