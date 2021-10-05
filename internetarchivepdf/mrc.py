@@ -24,7 +24,7 @@ import fitz
 
 fitz.TOOLS.set_icc(True) # For good measure, not required
 
-from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE,)
+from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW)
 
 
 """
@@ -34,6 +34,8 @@ KDU_COMPRESS = 'kdu_compress'
 KDU_EXPAND = 'kdu_expand'
 OPJ_COMPRESS = 'opj_compress'
 OPJ_DECOMPRESS = 'opj_decompress'
+GRK_COMPRESS = 'grk_compress'
+GRK_DECOMPRESS = 'grk_decompress'
 
 
 # skimage throws useless UserWarnings in various functions
@@ -46,7 +48,7 @@ def mean_estimate_sigma(arr):
 def threshold_image(img, rev=False, otsu=False, block_size=9):
     """
     Apply adaptive (local) thresholding, filtering out background noise to make
-    the text more readable. 
+    the text more readable.
 
     Returns the thresholded np image array
     """
@@ -454,7 +456,8 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
         return None, mask_img_png
 
 
-def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
+def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
+        jpeg2000_implementation=None, timing_data=None):
     """
     Encode background image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -462,20 +465,20 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
     Args:
 
     * np_bg (numpy.array): Background image array
-    * bg_slope (int): Compression parameter(s), WIP
+    * bg_compression_flags (str): Compression flags
     * tmp_dir (str): path the temporary directory to write images to
-    * use_kdu (bool): Whether to encode using Kakadu or OpenJPEG2000
+    * jpeg2000_implementation (str): What JPEG2000 implementation to use
     * timing_data (optional): Add time information to timing_data structure
 
     Returns the filepath to the JPEG2000 background image
     """
     t = time()
     # Create background
-    if use_kdu:
-        # TODO: check if kakadu supports .tif
+    if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
         fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
     else:
         fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.pnm', dir=tmp_dir)
+
     close(fd)
     fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2', dir=tmp_dir)
     close(fd)
@@ -485,19 +488,22 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
     bg_img = Image.fromarray(np_bg)
     bg_img.save(bg_img_tiff)
 
-    if use_kdu:
+    if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
         subprocess.check_call([KDU_COMPRESS,
             '-num_threads', '0',
-            '-i', bg_img_tiff, '-o', bg_img_jp2,
-            '-slope', str(bg_slope),
-            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    else:
+            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
         subprocess.check_call([OPJ_COMPRESS,
-            '-i', bg_img_tiff, '-o', bg_img_jp2,
-            '-threads', '1',
-            # Use constant reduction rate here (not psnr)
-            '-r', '400',
-            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
+        subprocess.check_call([GRK_COMPRESS, '-H', '1',
+            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    else:
+        raise Exception('Error: invalid jpeg2000 implementation?')
+
     remove(bg_img_tiff)
 
     if timing_data is not None:
@@ -506,7 +512,8 @@ def encode_mrc_background(np_bg, bg_slope, tmp_dir=None, use_kdu=True, timing_da
     return bg_img_jp2
 
 
-def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_data=None):
+def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
+        jpeg2000_implementation=None, timing_data=None):
     """
     Encode foreground image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -514,17 +521,16 @@ def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_da
     Args:
 
     * np_bg (numpy.array): Foreground image array
-    * bg_slope (int): Compression parameter(s), WIP
+    * fg_compression_flags (str): Compression flags
     * tmp_dir (str): path the temporary directory to write images to
-    * use_kdu (bool): Whether to encode using Kakadu or OpenJPEG2000
+    * jpeg2000_implementation (str): What JPEG2000 implementation to use
     * timing_data (optional): Add time information to timing_data structure
 
     Returns the filepath to the JPEG2000 foreground image
     """
     t = time()
     # Create foreground
-    if use_kdu:
-        # TODO: check if kakadu supports .tif
+    if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
         fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
     else:
         fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.pnm', dir=tmp_dir)
@@ -538,19 +544,22 @@ def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_da
     fg_img = Image.fromarray(np_fg)
     fg_img.save(fg_img_tiff)
 
-    if use_kdu:
+    if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
         subprocess.check_call([KDU_COMPRESS,
             '-num_threads', '0',
-            '-i', fg_img_tiff, '-o', fg_img_jp2,
-            '-slope', str(fg_slope),
-            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    else:
+            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
         subprocess.check_call([OPJ_COMPRESS,
-            '-threads', '1',
-            '-i', fg_img_tiff, '-o', fg_img_jp2,
-            # Use PSNR here
-            '-q', '25',
-            ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
+        subprocess.check_call([GRK_COMPRESS, '-H', '1',
+            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    else:
+        raise Exception('Error: invalid jpeg2000 implementation?')
+
     remove(fg_img_tiff)
 
     if timing_data is not None:
@@ -559,20 +568,23 @@ def encode_mrc_foreground(np_fg, fg_slope, tmp_dir=None, use_kdu=True, timing_da
     return fg_img_jp2
 
 
-def encode_mrc_images(mrc_gen, bg_slope=None, fg_slope=None,
-                      tmp_dir=None, jbig2=True, timing_data=None, use_kdu=True):
+def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=None,
+                      tmp_dir=None, jbig2=True, timing_data=None,
+                      jpeg2000_implementation=None):
     mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen), tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
 
     np_fg = next(mrc_gen)
-    fg_img_jp2 = encode_mrc_foreground(np_fg, fg_slope, tmp_dir=tmp_dir,
-                                       use_kdu=use_kdu, timing_data=timing_data)
+    fg_img_jp2 = encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=tmp_dir,
+                                       jpeg2000_implementation=jpeg2000_implementation,
+                                       timing_data=timing_data)
     fg_h, fg_w = np_fg.shape[0:2]
     np_fg = None
 
     np_bg = next(mrc_gen)
-    bg_img_jp2 = encode_mrc_background(np_bg, bg_slope, tmp_dir=tmp_dir,
-                                       use_kdu=use_kdu, timing_data=timing_data)
+    bg_img_jp2 = encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=tmp_dir,
+                                       jpeg2000_implementation=jpeg2000_implementation,
+                                       timing_data=timing_data)
     bg_h, bg_w = np_bg.shape[0:2]
     np_bg = None
 

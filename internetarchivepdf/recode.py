@@ -26,6 +26,7 @@ import fitz
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)
 from internetarchivepdf.mrc import KDU_EXPAND, OPJ_DECOMPRESS, \
+        GRK_DECOMPRESS, \
         create_mrc_hocr_components, \
         encode_mrc_images, encode_mrc_mask
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
@@ -37,7 +38,13 @@ from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,
-        RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS,)
+        RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS,
+        JPEG2000_IMPL_KAKADU,
+        JPEG2000_IMPL_OPENJPEG,
+        JPEG2000_IMPL_GROK,
+        JPEG2000_IMPL_PILLOW,
+        COMPRESSOR_JPEG2000,
+        COMPRESSOR_JPEG)
 
 PDFA_MIN_UNITS = 3
 PDFA_MAX_UNITS = 14400
@@ -317,15 +324,15 @@ def get_timing_summary(timing_data):
 
 
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
-        bg_slope=None, fg_slope=None,
+        bg_compression_flags=None, fg_compression_flags=None,
         skip_pages=None, img_dir=None, jbig2=False,
         downsample=None,
         bg_downsample=None,
         denoise_mask=None, reporter=None,
-        hq_pages=None, hq_bg_slope=None, hq_fg_slope=None,
+        hq_pages=None, hq_bg_compression_flags=None, hq_fg_compression_flags=None,
         verbose=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
-        use_openjpeg=False, errors=None):
+        jpeg2000_implementation=None, errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -373,14 +380,17 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             imgfile = image_files[idx+skipped_pages]
 
             if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
-                if not use_openjpeg:
+                # TODO: If we have pillow jpeg2000 implementation, let's use it
+                # and not do the whole tmpfile dance.
+
+                if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
                     fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
                 else:
                     fd, tiff_in = mkstemp(prefix='in', suffix='.pnm', dir=tmp_dir)
                 os.close(fd)
                 os.remove(tiff_in)
 
-                if not use_openjpeg:
+                if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
                     if downsample is not None:
                         subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
                             tiff_in, '-reduce', str(downsample-1)], stderr=subprocess.DEVNULL,
@@ -390,7 +400,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                         subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
                             tiff_in], stderr=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL)
-                else:
+                elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
                     if downsample is not None:
                         subprocess.check_call([OPJ_DECOMPRESS, '-r',
                             str(downsample-1), '-i', imgfile, '-o',
@@ -400,6 +410,20 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                         subprocess.check_call([OPJ_DECOMPRESS, '-i', imgfile, '-o',
                             tiff_in], stderr=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL)
+                elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
+                    if downsample is not None:
+                        subprocess.check_call([GRK_DECOMPRESS, '-r',
+                            str(downsample-1), '-H', '1', '-i', imgfile, '-o',
+                            tiff_in], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
+                    else:
+                        subprocess.check_call([GRK_DECOMPRESS, '-H', '1',
+                            '-i', imgfile, '-o', tiff_in], stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
+                else:
+                    # TODO: could use pillow fallback, but let's do that before
+                    # we make tmpfiles
+                    raise Exception('Error: invalid jpeg2000 implementation?')
 
                 image = Image.open(tiff_in)
                 image.load()
@@ -459,11 +483,12 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # TODO: maybe call the encode_mrc_{mask,foreground,background}
             # separately from here so that we can free the arrays sooner (and even
             # get the images separately from the create_mrc_hocr_components call)
+
             mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
-                    bg_slope=hq_bg_slope if render_hq else bg_slope,
-                    fg_slope=hq_fg_slope if render_hq else fg_slope,
+                    bg_compression_flags=hq_bg_compression_flags if render_hq else bg_compression_flags,
+                    fg_compression_flags=hq_fg_compression_flags if render_hq else fg_compression_flags,
                     tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
-                    use_kdu=not use_openjpeg)
+                    jpeg2000_implementation=jpeg2000_implementation)
 
             if img_dir is not None:
                 shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
@@ -888,13 +913,13 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         grayscale_pdf=False,
         image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
         report_every=None, stop_after=None,
-        use_openjpeg=False,
-        bg_slope=47000, fg_slope=49000,
+        jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
+        bg_compression_flags=None, fg_compression_flags=None,
         downsample=None,
         bg_downsample=None,
         denoise_mask=None,
         hq_pages=None,
-        hq_bg_slope=47000, hq_fg_slope=47000,
+        hq_bg_compression_flags=None, hq_fg_compression_flags=None,
         render_text_lines=False,
         metadata_url=None, metadata_title=None, metadata_author=None,
         metadata_creator=None, metadata_language=None,
@@ -997,8 +1022,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         insert_images_mrc(outdoc, hocr_file,
                           from_pdf=in_pdf,
                           image_files=image_files,
-                          bg_slope=bg_slope,
-                          fg_slope=fg_slope,
+                          bg_compression_flags=bg_compression_flags,
+                          fg_compression_flags=fg_compression_flags,
                           skip_pages=skip_pages,
                           img_dir=out_dir,
                           jbig2=jbig2,
@@ -1007,14 +1032,14 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           denoise_mask=denoise_mask,
                           reporter=reporter,
                           hq_pages=HQ_PAGES,
-                          hq_bg_slope=hq_bg_slope,
-                          hq_fg_slope=hq_fg_slope,
+                          hq_bg_compression_flags=hq_bg_compression_flags,
+                          hq_fg_compression_flags=hq_fg_compression_flags,
                           verbose=verbose,
                           tmp_dir=tmp_dir,
                           report_every=report_every,
                           stop_after=stop,
                           grayscale_pdf=grayscale_pdf,
-                          use_openjpeg=use_openjpeg,
+                          jpeg2000_implementation=jpeg2000_implementation,
                           errors=errors)
     elif image_mode in (0, 1):
         # TODO: Update this codepath

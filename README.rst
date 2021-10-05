@@ -38,6 +38,8 @@ One-of:
 
 * `Kakadu JPEG2000 binaries <https://kakadusoftware.com/>`_
 * Open source OpenJPEG2000 tools (opj_compress and opj_decompress)
+* Grok (grk_compress and grk_decompress)
+  <https://github.com/GrokImageCompression/grok/>`_
 
 Optional:
 

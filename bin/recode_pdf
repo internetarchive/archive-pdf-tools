@@ -2,9 +2,15 @@
 
 import sys
 from internetarchivepdf.recode import recode
-from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, OPJ_DECOMPRESS
+from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
+        OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
-        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC)
+        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
+        JPEG2000_IMPL_KAKADU,
+        JPEG2000_IMPL_OPENJPEG,
+        JPEG2000_IMPL_GROK,
+        COMPRESSOR_JPEG2000,
+        COMPRESSOR_JPEG)
 from shutil import which
 
 
@@ -68,18 +74,22 @@ if __name__ == '__main__':
                              '(default is no reporting)')
     parser.add_argument('-t', '--stop-after', default=None, type=int,
                         help='Stop after N pages (default is no stop)')
-    # TODO: Either rename --bg-slope and --fg-slope or add special flags for
-    # opj_compress
-    parser.add_argument('--use-openjpeg', default=False, action='store_true',
-                        help='Use opj_compress and opj_decompress instead of'
-                             ' kakadu. **Currently the compression quality is'
-                             ' hardcoded**')
-    parser.add_argument('--bg-slope', default=44250, type=int,
-                        help='Slope for background layer.'
-                             ' Default is 44250')
-    parser.add_argument('--fg-slope', default=45000, type=int,
-                        help='Slope for foreground layer.'
-                             ' Default is 45000')
+    # TODO: Support JPEG2000_IMPL_PILLOW
+    parser.add_argument('-J', '--jpeg2000-implementation', type=str,
+                        default=JPEG2000_IMPL_KAKADU,
+                        choices=[JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
+                            JPEG2000_IMPL_GROK],
+                        help='Selects JPEG2000 implementation.')
+    parser.add_argument('--bg-compression-flags', default=None, type=str,
+                        help='Background compression flags for JPEG2000 '
+                             'compression. '
+                              'Default for kakadu is \'-slope 44250\','
+                              'default for grok/openjpeg is \'-q 30\'')
+    parser.add_argument('--fg-compression-flags', default=None, type=str,
+                        help='Foreground compression flags for JPEG2000 '
+                             'compression. '
+                              'Default for kakadu is \'-slope 44500\','
+                              'default for grok/openjpeg is \'-q 30\'')
     parser.add_argument('--downsample', default=None, type=int,
                         help='Downsample entire image by factor before '
                               'processing. Default is no downscaling.')
@@ -97,14 +107,19 @@ if __name__ == '__main__':
                              ' will make the first four and last four pages '
                              'of a higher quality. Pages marked as higher '
                              'quality will not get downsampled and might use '
-                             'different slope values (see --hq-bg-slope '
-                             'and --hq-fg-slope)')
-    parser.add_argument('--hq-bg-slope', default=43500 , type=int,
-                        help='High quality slope for background layer.'
-                             ' Default is 43500')
-    parser.add_argument('--hq-fg-slope', default=44500, type=int,
-                        help='High quality slope for foreground layer.'
-                             ' Default is 44500')
+                             'different slope values (see '
+                             '--hq-bg-compression-flags and '
+                             '--hq-fg-compression-flags)')
+    parser.add_argument('--hq-bg-compression-flags', default=None, type=str,
+                        help='High quality background compression flags for '
+                             'JPEG2000 compression. '
+                             'Default for kakadu is \'-slope 43500\','
+                             'default for grok/openjpeg is \'-q 40\'')
+    parser.add_argument('--hq-fg-compression-flags', type=str,
+                        help='High quality foreground compression flags for '
+                              'JPEG2000 compression. '
+                              'Default for kakadu is \'-slope 44500\','
+                              'default for grok/openjpeg is \'-q 30\'')
     parser.add_argument('--render-text-lines', action='store_true',
                         default=False,
                         help='Whether to render the text line visible instead '
@@ -142,13 +157,55 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if args.image_mode == IMAGE_MODE_MRC:
-        if args.use_openjpeg:
-            if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
-                sys.stderr.write('***** Error: --use-openjpeg is provided but opj_compress and opj_decompress are not found in $PATH\n')
-                sys.exit(1)
-        else:
+        if args.jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+            if args.bg_compression_flags is None:
+                args.bg_compression_flags = '-slope 44250'
+
+            if args.fg_compression_flags is None:
+                args.fg_compression_flags = '-slope 44500'
+
+            if args.hq_bg_compression_flags is None:
+                args.hq_bg_compression_flags = '-slope 43500'
+
+            if args.hq_fg_compression_flags is None:
+                args.hq_fg_compression_flags = '-slope 44500'
+
             if not (which(KDU_EXPAND) and which(KDU_COMPRESS)):
                 sys.stderr.write('***** Error: kakadu is requested (this is the default, pass --use-openjpeg for the alternative compression), but kdu_expand and kdu_compress are not found in $PATH\n')
+                sys.exit(1)
+
+        if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
+            if args.bg_compression_flags is None:
+                args.bg_compression_flags = '-q 30'
+
+            if args.fg_compression_flags is None:
+                args.fg_compression_flags = '-q 30'
+
+            if args.hq_bg_compression_flags is None:
+                args.hq_bg_compression_flags = '-q 40'
+
+            if args.hq_fg_compression_flags is None:
+                args.hq_fg_compression_flags = '-q 30'
+
+            if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
+                sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
+                sys.exit(1)
+
+        if args.jpeg2000_implementation == JPEG2000_IMPL_GROK:
+            if args.bg_compression_flags is None:
+                args.bg_compression_flags = '-q 30'
+
+            if args.fg_compression_flags is None:
+                args.fg_compression_flags = '-q 30'
+
+            if args.hq_bg_compression_flags is None:
+                args.hq_bg_compression_flags = '-q 40'
+
+            if args.hq_fg_compression_flags is None:
+                args.hq_fg_compression_flags = '-q 30'
+
+            if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
+                sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
                 sys.exit(1)
 
 
@@ -158,13 +215,15 @@ if __name__ == '__main__':
            args.grayscale_pdf,
            args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
            args.report_every, args.stop_after,
-           args.use_openjpeg,
-           args.bg_slope, args.fg_slope,
+           args.jpeg2000_implementation,
+           args.bg_compression_flags.split(' '),
+           args.fg_compression_flags.split(' '),
            args.downsample,
            args.bg_downsample,
            args.denoise_mask,
            args.hq_pages,
-           args.hq_bg_slope, args.hq_fg_slope,
+           args.hq_bg_compression_flags.split(' '),
+           args.hq_fg_compression_flags.split(' '),
            args.render_text_lines,
            args.metadata_url, args.metadata_title, args.metadata_author,
            args.metadata_creator, args.metadata_language,
