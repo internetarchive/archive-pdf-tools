@@ -16,6 +16,7 @@ from math import atan, atan2, cos, sin
 import numpy as np
 import zlib
 import datetime
+import sys
 
 # Lives at https://git.archive.org/merlijn/archive-hocr-tools
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
@@ -390,8 +391,11 @@ class TessPDFRenderer(object):
         xobject = bytes()
         stream = bytes()
 
-        if False: # if !textonly
-            xobject += b'/XObject << /Im1 ' + str((obj_ + 2)).encode('ascii') + b' 0 R >>\n'
+        # We don't want to actually add the image itself -- one of the
+        # reasons for this code to exist is to do the same _without_ adding
+        # the image, but just for reference, here is the old code:
+        # if !textonly
+        #     xobject += b'/XObject << /Im1 ' + str((self.obj_ + 2)).encode('ascii') + b' 0 R >>\n'
 
         stream += (
           str(self._obj).encode('ascii') + b' 0 obj\n'
@@ -526,7 +530,7 @@ def CodepointToUtf16be(code):
     res = None
 
     if (((code > 0xD7FF) and (code < 0xE000)) or (code > 0x10FFFF)):
-        tprintf("Dropping invalid codepoint %d\n", code);
+        printf("Dropping invalid codepoint %d\n", code, file=sys.stderr);
         return False, res
 
     if (code < 0x10000):
