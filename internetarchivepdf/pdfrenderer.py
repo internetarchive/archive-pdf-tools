@@ -530,7 +530,7 @@ def CodepointToUtf16be(code):
     res = None
 
     if (((code > 0xD7FF) and (code < 0xE000)) or (code > 0x10FFFF)):
-        printf("Dropping invalid codepoint %d\n", code, file=sys.stderr);
+        print("Dropping invalid codepoint %d\n" % code, file=sys.stderr);
         return False, res
 
     if (code < 0x10000):
