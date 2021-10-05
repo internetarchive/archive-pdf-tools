@@ -332,7 +332,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         hq_pages=None, hq_bg_compression_flags=None, hq_fg_compression_flags=None,
         verbose=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
-        jpeg2000_implementation=None, errors=None):
+        jpeg2000_implementation=None, mrc_image_format=None, errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -488,7 +488,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                     bg_compression_flags=hq_bg_compression_flags if render_hq else bg_compression_flags,
                     fg_compression_flags=hq_fg_compression_flags if render_hq else fg_compression_flags,
                     tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
-                    jpeg2000_implementation=jpeg2000_implementation)
+                    jpeg2000_implementation=jpeg2000_implementation,
+                    mrc_image_format=mrc_image_format)
 
             if img_dir is not None:
                 shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
@@ -915,6 +916,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         report_every=None, stop_after=None,
         jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
         bg_compression_flags=None, fg_compression_flags=None,
+        mrc_image_format=None,
         downsample=None,
         bg_downsample=None,
         denoise_mask=None,
@@ -1040,6 +1042,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           stop_after=stop,
                           grayscale_pdf=grayscale_pdf,
                           jpeg2000_implementation=jpeg2000_implementation,
+                          mrc_image_format=mrc_image_format,
                           errors=errors)
     elif image_mode in (0, 1):
         # TODO: Update this codepath

@@ -24,7 +24,9 @@ import fitz
 
 fitz.TOOLS.set_icc(True) # For good measure, not required
 
-from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW)
+from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, JPEG2000_IMPL_KAKADU,
+        JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW,
+        COMPRESSOR_JPEG, COMPRESSOR_JPEG2000)
 
 
 """
@@ -457,7 +459,7 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
 
 
 def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
-        jpeg2000_implementation=None, timing_data=None):
+        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
     Encode background image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -468,16 +470,20 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
     * bg_compression_flags (str): Compression flags
     * tmp_dir (str): path the temporary directory to write images to
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
+    * mrc_image_format (str): What image format to produce
     * timing_data (optional): Add time information to timing_data structure
 
     Returns the filepath to the JPEG2000 background image
     """
     t = time()
     # Create background
-    if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
-        fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
+    if mrc_image_format == COMPRESSOR_JPEG:
+        fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.jpg', dir=tmp_dir)
     else:
-        fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.pnm', dir=tmp_dir)
+        if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
+            fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
+        else:
+            fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.pnm', dir=tmp_dir)
 
     close(fd)
     fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2', dir=tmp_dir)
@@ -486,9 +492,18 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
                        # we even doing
 
     bg_img = Image.fromarray(np_bg)
-    bg_img.save(bg_img_tiff)
+    if mrc_image_format == COMPRESSOR_JPEG:
+        bg_img.save(bg_img_tiff, quality=100)
+    else:
+        bg_img.save(bg_img_tiff)
 
-    if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+    if mrc_image_format == COMPRESSOR_JPEG:
+        output = subprocess.check_output(['jpegoptim'] + bg_compression_flags +
+                [bg_img_tiff, '--stdout'])
+        tmpfd=open(bg_img_jp2, 'bw+') # XXX: FIXME: this defeats the point of a tmpfile
+        tmpfd.write(output)
+        tmpfd.close()
+    elif jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
         subprocess.check_call([KDU_COMPRESS,
             '-num_threads', '0',
             '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
@@ -513,7 +528,7 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
 
 
 def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
-        jpeg2000_implementation=None, timing_data=None):
+        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
     Encode foreground image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -524,16 +539,20 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
     * fg_compression_flags (str): Compression flags
     * tmp_dir (str): path the temporary directory to write images to
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
+    * mrc_image_format (str): What image format to produce
     * timing_data (optional): Add time information to timing_data structure
 
     Returns the filepath to the JPEG2000 foreground image
     """
     t = time()
     # Create foreground
-    if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
-        fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
+    if mrc_image_format == COMPRESSOR_JPEG:
+        fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.jpg', dir=tmp_dir)
     else:
-        fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.pnm', dir=tmp_dir)
+        if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
+            fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
+        else:
+            fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.pnm', dir=tmp_dir)
 
     close(fd)
     fd, fg_img_jp2 = mkstemp(prefix='fg', suffix='.jp2', dir=tmp_dir)
@@ -542,9 +561,18 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
                        # we even doing
 
     fg_img = Image.fromarray(np_fg)
-    fg_img.save(fg_img_tiff)
+    if mrc_image_format == COMPRESSOR_JPEG:
+        fg_img.save(fg_img_tiff, quality=100)
+    else:
+        fg_img.save(fg_img_tiff)
 
-    if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+    if mrc_image_format == COMPRESSOR_JPEG:
+        output = subprocess.check_output(['jpegoptim'] + fg_compression_flags +
+                [fg_img_tiff, '--stdout'])
+        tmpfd=open(fg_img_jp2, 'bw+') # XXX: FIXME: this defeats the point of a tmpfile
+        tmpfd.write(output)
+        tmpfd.close()
+    elif jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
         subprocess.check_call([KDU_COMPRESS,
             '-num_threads', '0',
             '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
@@ -570,13 +598,14 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
 
 def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=None,
                       tmp_dir=None, jbig2=True, timing_data=None,
-                      jpeg2000_implementation=None):
+                      jpeg2000_implementation=None, mrc_image_format=None):
     mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen), tmp_dir=tmp_dir, jbig2=jbig2,
             timing_data=timing_data)
 
     np_fg = next(mrc_gen)
     fg_img_jp2 = encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
+                                       mrc_image_format=mrc_image_format,
                                        timing_data=timing_data)
     fg_h, fg_w = np_fg.shape[0:2]
     np_fg = None
@@ -584,6 +613,7 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
     np_bg = next(mrc_gen)
     bg_img_jp2 = encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
+                                       mrc_image_format=mrc_image_format,
                                        timing_data=timing_data)
     bg_h, bg_w = np_bg.shape[0:2]
     np_bg = None

@@ -90,6 +90,12 @@ if __name__ == '__main__':
                              'compression. '
                               'Default for kakadu is \'-slope 44500\','
                               'default for grok/openjpeg is \'-q 30\'')
+    parser.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
+                        type=str,
+                        choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
+                        help='Image formats to produce in MRC encoding. '
+                              'JPEG2000 yields better compression and quality '
+                              'at the expense of computation')
     parser.add_argument('--downsample', default=None, type=int,
                         help='Downsample entire image by factor before '
                               'processing. Default is no downscaling.')
@@ -157,56 +163,78 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if args.image_mode == IMAGE_MODE_MRC:
-        if args.jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+        if args.mrc_image_format == COMPRESSOR_JPEG2000:
+            if args.jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+                if args.bg_compression_flags is None:
+                    args.bg_compression_flags = '-slope 44250'
+
+                if args.fg_compression_flags is None:
+                    args.fg_compression_flags = '-slope 44500'
+
+                if args.hq_bg_compression_flags is None:
+                    args.hq_bg_compression_flags = '-slope 43500'
+
+                if args.hq_fg_compression_flags is None:
+                    args.hq_fg_compression_flags = '-slope 44500'
+
+                if not (which(KDU_EXPAND) and which(KDU_COMPRESS)):
+                    sys.stderr.write('***** Error: kakadu is requested (this is the default, pass --use-openjpeg for the alternative compression), but kdu_expand and kdu_compress are not found in $PATH\n')
+                    sys.exit(1)
+
+            if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
+                if args.bg_compression_flags is None:
+                    args.bg_compression_flags = '-q 40'
+
+                if args.fg_compression_flags is None:
+                    args.fg_compression_flags = '-q 30'
+
+                if args.hq_bg_compression_flags is None:
+                    args.hq_bg_compression_flags = '-q 40'
+
+                if args.hq_fg_compression_flags is None:
+                    args.hq_fg_compression_flags = '-q 30'
+
+                if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
+                    sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
+                    sys.exit(1)
+
+            if args.jpeg2000_implementation == JPEG2000_IMPL_GROK:
+                if args.bg_compression_flags is None:
+                    args.bg_compression_flags = '-q 40'
+
+                if args.fg_compression_flags is None:
+                    args.fg_compression_flags = '-q 30'
+
+                if args.hq_bg_compression_flags is None:
+                    args.hq_bg_compression_flags = '-q 40'
+
+                if args.hq_fg_compression_flags is None:
+                    args.hq_fg_compression_flags = '-q 30'
+
+                if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
+                    sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
+                    sys.exit(1)
+
+        elif args.mrc_image_format == COMPRESSOR_JPEG:
+            # TODO: Check jpegoptim args
             if args.bg_compression_flags is None:
-                args.bg_compression_flags = '-slope 44250'
+                args.bg_compression_flags = '-S30'
 
             if args.fg_compression_flags is None:
-                args.fg_compression_flags = '-slope 44500'
+                args.fg_compression_flags = '-S20'
 
             if args.hq_bg_compression_flags is None:
-                args.hq_bg_compression_flags = '-slope 43500'
+                args.hq_bg_compression_flags = '-S40'
 
             if args.hq_fg_compression_flags is None:
-                args.hq_fg_compression_flags = '-slope 44500'
+                args.hq_fg_compression_flags = '-S30'
 
-            if not (which(KDU_EXPAND) and which(KDU_COMPRESS)):
-                sys.stderr.write('***** Error: kakadu is requested (this is the default, pass --use-openjpeg for the alternative compression), but kdu_expand and kdu_compress are not found in $PATH\n')
+            if not which('jpegoptim'):
+                sys.stderr.write('***** Error: JPEG is requested but jpegoptim is not found in $PATH\n')
                 sys.exit(1)
 
-        if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-            if args.bg_compression_flags is None:
-                args.bg_compression_flags = '-q 30'
-
-            if args.fg_compression_flags is None:
-                args.fg_compression_flags = '-q 30'
-
-            if args.hq_bg_compression_flags is None:
-                args.hq_bg_compression_flags = '-q 40'
-
-            if args.hq_fg_compression_flags is None:
-                args.hq_fg_compression_flags = '-q 30'
-
-            if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
-                sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
-                sys.exit(1)
-
-        if args.jpeg2000_implementation == JPEG2000_IMPL_GROK:
-            if args.bg_compression_flags is None:
-                args.bg_compression_flags = '-q 30'
-
-            if args.fg_compression_flags is None:
-                args.fg_compression_flags = '-q 30'
-
-            if args.hq_bg_compression_flags is None:
-                args.hq_bg_compression_flags = '-q 40'
-
-            if args.hq_fg_compression_flags is None:
-                args.hq_fg_compression_flags = '-q 30'
-
-            if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
-                sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
-                sys.exit(1)
+        else:
+            raise Exception('Invalid mrc image format')
 
 
     res = recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
@@ -218,6 +246,7 @@ if __name__ == '__main__':
            args.jpeg2000_implementation,
            args.bg_compression_flags.split(' '),
            args.fg_compression_flags.split(' '),
+           args.mrc_image_format,
            args.downsample,
            args.bg_downsample,
            args.denoise_mask,
