@@ -40,6 +40,7 @@ One-of:
 * Open source OpenJPEG2000 tools (opj_compress and opj_decompress)
 * Grok (grk_compress and grk_decompress)
   <https://github.com/GrokImageCompression/grok/>`_
+* jpegoptim <https://github.com/tjko/jpegoptim>`_
 
 Optional:
 
@@ -87,16 +88,11 @@ Known issues
 Planned features
 ================
 
-* Support for using JPEG instead of JPEG2000 (faster PDF loading, but likely
-  less compression)
 * Addition of a second set of fonts in the PDFs, so that hidden selected text
   also renders the original glyphs.
-* Faster partial blur
-
-Features in progress
-====================
-
-* cupy (numpy/scipy on GPU) support
+* Better background generation (text removal from the background)
+* Better compression parameter selection, I have not toyed around that much with
+  kakadu and grok/openjpeg2000 parameters.
 
 
 MRC
