@@ -122,6 +122,7 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     cdef int ifysc, ifyec, iiysc, iiyec, ifxsc, ifxec, iixsc, iixec
     cdef int inc_fir_px_val, inc_fir_px_mask
     cdef int inc_iir_px_val
+    cdef int iir_window_size
 
     # This function computes a FIR and IIR version of the box blur filter incrementally
     # As seen above
@@ -231,6 +232,7 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
     cdef int ifysc, ifyec, iiysc, iiyec, ifxsc, ifxec, iixsc, iixec
     cdef int inc_fir_px_r, inc_fir_px_g, inc_fir_px_b, inc_fir_px_mask
     cdef int inc_iir_px_r, inc_iir_px_g, inc_iir_px_b
+    cdef int iir_window_size
 
     # This function computes a FIR and IIR version of the box blur filter incrementally
     # As seen above
