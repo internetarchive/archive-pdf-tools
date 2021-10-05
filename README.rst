@@ -152,11 +152,22 @@ text layer::
 Examining the results
 ---------------------
 
-Use ``pdfimages`` to extract the image layers of a specific page and then view
-them with your favourite image viewer::
+`mrcview (tools/mrcview) is shipped with the package and can be used to turn a
+MRC-compressed PDF into a PDF with each layer on a separate page, this is the
+easiest way to inspect the resulting compression. Run it like so:
+
+    mrcview /tmp/compressed.pdf /tmp/mrc.pdf
+
+... and then open `/tmp/mrc.pdf` in your favourite PDF reader.
+
+Alternatively, one could use ``pdfimages`` to extract the image layers of a
+specific page and then view them with your favourite image viewer::
 
     pageno=0; pdfimages -f $pageno -l $pageno -png path_to_pdf extracted_image_base
     feh extracted_image_base*.png
+
+`tools/pdfimagesmrc` can be used to check how the size of the PDF
+is broken down into the foreground, background and masks.
 
 License
 =======
