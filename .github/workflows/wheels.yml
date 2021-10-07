@@ -21,9 +21,8 @@ jobs:
 
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
-        # to supply options, put them in 'env', like:
-        # env:
-        #   CIBW_SOME_OPTION: value
+        env:
+          CIBW_BEFORE_BUILD: python -m pip install -r requirements.txt
 
       - uses: actions/upload-artifact@v2
         with:
