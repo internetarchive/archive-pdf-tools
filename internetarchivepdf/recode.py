@@ -332,6 +332,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         hq_pages=None, hq_bg_compression_flags=None, hq_fg_compression_flags=None,
         verbose=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
+        force_1bit_output=None,
         jpeg2000_implementation=None, mrc_image_format=None, errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
@@ -449,7 +450,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
 
-        if image.mode == '1':
+        if image.mode == '1' or force_1bit_output == True:
             ww, hh = image.size
             mask_jb2, mask_png = encode_mrc_mask(np.array(image), tmp_dir=tmp_dir,
                     jbig2=jbig2, timing_data=timing_data)
@@ -912,6 +913,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         scandata_file=None, out_pdf=None, out_dir=None,
         reporter=None,
         grayscale_pdf=False,
+        force_1bit_output=False,
         image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
         report_every=None, stop_after=None,
         jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
@@ -1041,6 +1043,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           report_every=report_every,
                           stop_after=stop,
                           grayscale_pdf=grayscale_pdf,
+                          force_1bit_output=force_1bit_output,
                           jpeg2000_implementation=jpeg2000_implementation,
                           mrc_image_format=mrc_image_format,
                           errors=errors)

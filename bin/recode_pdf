@@ -59,6 +59,10 @@ if __name__ == '__main__':
                         default=False,
                         help='Whether to convert all images to grayscale in '
                              'the resulting PDF')
+    parser.add_argument('--bw-pdf', action='store_true',
+                        default=False,
+                        help='Whether to convert all images 1 bit images in '
+                             'the resulting PDF')
     parser.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
                               ' 2 is MRC (default is 2). 3 is skip images',
@@ -249,6 +253,7 @@ if __name__ == '__main__':
            args.scandata_file, args.out_pdf, args.out_dir,
            args.reporter,
            args.grayscale_pdf,
+           args.bw_pdf,
            args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
            args.report_every, args.stop_after,
            args.jpeg2000_implementation,
