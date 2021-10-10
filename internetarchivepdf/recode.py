@@ -450,7 +450,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         hocr_word_data = hocr_page_to_word_data(hocr_page)
 
-        if image.mode == '1' or force_1bit_output == True:
+        if image.mode == '1':
             ww, hh = image.size
             mask_jb2, mask_png = encode_mrc_mask(np.array(image), tmp_dir=tmp_dir,
                     jbig2=jbig2, timing_data=timing_data)
@@ -472,6 +472,31 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             if timing_data is not None:
                 timing_data.append(('page_image_insertion', time() - t))
 
+        elif force_1bit_output == True:
+            ww, hh = image.size
+            mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
+                    downsample=downsample, bg_downsample=None if render_hq else
+                    bg_downsample, denoise_mask=denoise_mask,
+                    timing_data=timing_data, errors=errors)
+            np_mask = next(mrc_gen)
+            np_mask = np_mask ^ np.ones(np_mask.shape, dtype=bool)
+            mask_jb2, mask_png = encode_mrc_mask(np_mask, tmp_dir=tmp_dir, jbig2=jbig2,
+                    timing_data=timing_data)
+
+            if jbig2:
+                mask_contents = open(mask_jb2, 'rb').read()
+                remove(mask_jb2)
+            else:
+                mask_contents = open(mask_png, 'rb').read()
+
+            # We currently always return the PNG file
+            remove(mask_png)
+
+            page.insert_image(page.rect, stream=mask_contents,
+                    width=ww, height=hh, alpha=0)
+
+            if timing_data is not None:
+                timing_data.append(('page_image_insertion', time() - t))
         else:
             mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
                     downsample=downsample, bg_downsample=None if render_hq else
