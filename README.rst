@@ -31,24 +31,16 @@ Dependencies
     - scikit-image
     - Pillow
     - roman
-    - `archive-hocr-tools <https://git.archive.org/merlijn/archive-hocr-tools>`_
+    - `archive-hocr-tools <https://github.com/internetarchive/archive-hocr-tools>`_
 
 
 One-of:
 
 * `Kakadu JPEG2000 binaries <https://kakadusoftware.com/>`_
 * Open source OpenJPEG2000 tools (opj_compress and opj_decompress)
-* Grok (grk_compress and grk_decompress)
-  <https://github.com/GrokImageCompression/grok/>`_
-* jpegoptim <https://github.com/tjko/jpegoptim>`_
-
-Optional:
-
-* For JBIG2 support, a (currently unreleased) version of mupdf is required.
-  mupdf 1.19 is expected to fully support JBIG2. (PyMuPDF currently packages
-  mupdf statically, so you'll have to make sure that version is also up to
-  date). The default PDF compression options use ``ccitt``, so this is only
-  required if you pass ``--jbig2`` to ``bin/pdf_recode``.
+* `Grok <https://github.com/GrokImageCompression/grok/>`_ (grk_compress and grk_decompress)
+* `jpegoptim <https://github.com/tjko/jpegoptim>`_
+* `jbig2enc <https://github.com/agl/jbig2enc>`_ for JBIG2 compression (and PyMuPDF 1.19.0 or higher)
 
 
 Features
@@ -64,6 +56,7 @@ Features
 * Basic PDF/UA support (accessibility features)
 * Support for optional denoising of masks to further improve compression
   (--denoise-mask)
+* Creation of 1 bit (black and white) PDFs
 
 
 
@@ -81,8 +74,8 @@ Known issues
 * Using ``--image-mode 0`` and ``--image-mode 1`` is currently broken, so only
   MRC or no images is supported.
 * It is not possible to recode/compress a PDF without hOCR files. This will be
-  addressed in the future, since it should not be a problem to generate lack
-  hOCR data.
+  addressed in the future, since it should not be a problem to generate a PDF
+  lacking hOCR data.
 
 
 Planned features
@@ -90,7 +83,7 @@ Planned features
 
 * Addition of a second set of fonts in the PDFs, so that hidden selected text
   also renders the original glyphs.
-* Better background generation (text removal from the background)
+* Better background generation (text shade removal from the background)
 * Better compression parameter selection, I have not toyed around that much with
   kakadu and grok/openjpeg2000 parameters.
 
