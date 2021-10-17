@@ -67,7 +67,7 @@ if __name__ == '__main__':
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
                               ' 2 is MRC (default is 2). 3 is skip images',
                               type=int)
-    parser.add_argument('--jbig2', default=False, help='Encode using jbig2',
+    parser.add_argument('--jbig2', default=True, help='Encode using jbig2',
                         action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='Verbose output')
