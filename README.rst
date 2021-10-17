@@ -39,7 +39,10 @@ One-of:
 * `Kakadu JPEG2000 binaries <https://kakadusoftware.com/>`_
 * Open source OpenJPEG2000 tools (opj_compress and opj_decompress)
 * `Grok <https://github.com/GrokImageCompression/grok/>`_ (grk_compress and grk_decompress)
-* `jpegoptim <https://github.com/tjko/jpegoptim>`_
+* `jpegoptim <https://github.com/tjko/jpegoptim>`_ (when using JPEG instead of JPEG2000)
+
+For JBIG2 compression:
+
 * `jbig2enc <https://github.com/agl/jbig2enc>`_ for JBIG2 compression (and PyMuPDF 1.19.0 or higher)
 
 
