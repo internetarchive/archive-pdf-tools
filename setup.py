@@ -36,7 +36,7 @@ setup(name='archive-pdf-tools',
       package_data={'internetarchivepdf': ['data/*']},
       include_dirs=[numpy.get_include()],
       install_requires=[
-            'PyMuPDF==1.18.13',
+            'PyMuPDF==1.19.0',
             'numpy',
             'lxml',
             'scikit-image',

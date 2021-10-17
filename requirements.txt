@@ -1,4 +1,4 @@
-PyMuPDF==1.18.13
+PyMuPDF==1.19.0
 numpy
 lxml
 scikit-image
