@@ -267,30 +267,7 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
 
 
 def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_data=None):
-    # We don't apply any of these blurs to the hOCR mask, we want that as
-    # sharp as possible.
-
     t = time()
-    sigma_est = mean_estimate_sigma(imgf)
-    if timing_data is not None:
-        timing_data.append(('est_1', time() - t))
-    if sigma_est > 1.0:
-        t = time()
-        imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.1)
-        if timing_data is not None:
-            timing_data.append(('blur_1', time() - t))
-
-        #t = time()
-        #n_sigma_est = mean_estimate_sigma(imgf)
-        #time_data.append(('est_2', time() - t))
-        #if sigma_est > 1.0 and n_sigma_est > 1.0:
-        #    t = time()
-        #    imgf = ndimage.filters.gaussian_filter(imgf, sigma=sigma_est*0.5)
-        #    print('Going for second blur: n_sigma_est:',n_sigma_est)
-        #    time_data.append(('blur_2', time() - t))
-
-    t = time()
-    #thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
     thres_arr = threshold_image3(imgf.astype(np.uint8), dpi)
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
