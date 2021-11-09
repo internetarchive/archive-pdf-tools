@@ -368,6 +368,9 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         if picked_dpi is None:
             picked_dpi = dpi
 
+        if picked_dpi is not None:
+            picked_dpi = int(picked_dpi)
+
         page = to_pdf[idx]
 
         if from_pdf is not None:
