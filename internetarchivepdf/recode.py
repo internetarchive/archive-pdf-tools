@@ -324,6 +324,7 @@ def get_timing_summary(timing_data):
 
 
 def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
+        dpi=None, dpi_pages=None,
         bg_compression_flags=None, fg_compression_flags=None,
         skip_pages=None, img_dir=None, jbig2=False,
         downsample=None,
@@ -354,6 +355,18 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
         if stop_after is not None and idx >= stop_after:
             break
+
+        picked_dpi = None
+
+        hocr_dpi = hocr_page_get_scan_res(hocr_page)
+
+        if dpi_pages is not None:
+            picked_dpi = dpi_pages[idx]
+            if picked_dpi is None:
+                picked_dpi = hocr_dpi[1]
+
+        if picked_dpi is None:
+            picked_dpi = dpi
 
         page = to_pdf[idx]
 
@@ -475,6 +488,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         elif force_1bit_output == True:
             ww, hh = image.size
             mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
+                    dpi=picked_dpi,
                     downsample=downsample, bg_downsample=None if render_hq else
                     bg_downsample, denoise_mask=denoise_mask,
                     timing_data=timing_data, errors=errors)
@@ -499,6 +513,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 timing_data.append(('page_image_insertion', time() - t))
         else:
             mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
+                    dpi=picked_dpi,
                     downsample=downsample, bg_downsample=None if render_hq else
                     bg_downsample, denoise_mask=denoise_mask,
                     timing_data=timing_data, errors=errors)
@@ -1051,6 +1066,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         insert_images_mrc(outdoc, hocr_file,
                           from_pdf=in_pdf,
                           image_files=image_files,
+                          dpi=dpi,
+                          dpi_pages=dpi_pages,
                           bg_compression_flags=bg_compression_flags,
                           fg_compression_flags=fg_compression_flags,
                           skip_pages=skip_pages,

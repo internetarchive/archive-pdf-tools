@@ -83,17 +83,20 @@ def threshold_image2(np_image):
 
     return local & otsu
 
-
-def threshold_image3(img):
+def threshold_image3(img, dpi):
     window_size = 51
-    #window_size = 21
+
+    if dpi is not None:
+        window_size = int(dpi / 2)
+        if window_size % 2 == 0:
+            window_size += 1
 
     h, w = img.shape
     out_img = np.ndarray(img.shape, dtype=np.bool)
     out_img = np.reshape(out_img, w*h)
     in_img = np.reshape(img, w*h)
 
-    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, 0.3, 128)
+    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, 0.34, 128)
     out_img = np.reshape(out_img, (h, w))
     # TODO: optimise this, we can do it in binarise_sauvola
     out_img = np.invert(out_img)
@@ -190,89 +193,80 @@ def partial_boxblur(mask, fg, size=5, mode=None):
     return newfg
 
 
-def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, timing_data=None):
+def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, timing_data=None):
     image_width, image_height = img.size
     np_img = np.array(img)
 
     t = time()
-    for paragraphs in hocr_word_data:
-        for lines in paragraphs['lines']:
-            for word in lines['words']:
-                if not word['text'].strip():
-                    continue
 
-                if downsample is not None:
-                    left, top, right, bottom = [int(x/downsample) for x in word['bbox']]
-                    # This can happen if we downsample and round to int
-                    if left == right or top == bottom:
-                        continue
+    for paragraph in hocr_word_data:
+        for line in paragraph['lines']:
+            coords = line['bbox']
 
-                    np_wordimg = np_img[top:bottom,left:right]
-                else:
-                    left, top, right, bottom = [int(x) for x in word['bbox']]
-                    np_wordimg = np_img[top:bottom,left:right]
+            line_text = ' '.join([word['text'] for word in line['words']])
+            line_confs = [word['confidence'] for word in line['words']]
+            line_conf = sum(line_confs) / len(line_confs)
 
-                if (left >= right) or (top >= bottom):
-                    print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
-                    continue
+            if line_text.strip() == '' or line_conf < 20:
+                continue
 
-                if (left < 0) or (right > image_width) or (top < 0) or (bottom > image_height):
-                    print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
-                    continue
 
-                thres = threshold_image2(np_wordimg)
+            # TODO: maybe work with font size per line and word confidence in
+            # the line
 
-                sigma_est = mean_estimate_sigma(thres)
-                ones = np.count_nonzero(thres)
+            if downsample is not None:
+                coords = [int(x/downsample) for x in coords]
+            else:
+                coords = [int(x) for x in coords]
 
-                if sigma_est > 0.1:
-                    # Invert. (TODO: we should do this in a more efficient
-                    # manner)
-                    thres_i = threshold_image2(np.invert(np_wordimg))
-                    sigma_est_i = mean_estimate_sigma(thres_i)
-                    ones_i = np.count_nonzero(thres_i)
+            left, top, right, bottom = coords
+            # This can happen if we downsample and round to int
+            if left == right or top == bottom:
+                continue
 
-                    if sigma_est < sigma_est_i:
-                        pass
-                    elif sigma_est_i < sigma_est and ones_i < ones:
-                        ones_i = np.count_nonzero(thres_i)
+            if (left >= right) or (top >= bottom):
+                print('Invalid bounding box: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
+                continue
 
-                        # Find what is closer to the center of the bounding box
-                        ww, hh = thres.shape
-                        center_x = ww/2
-                        center_y = hh/2
+            if (left < 0) or (right > image_width) or (top < 0) or (bottom > image_height):
+                print('Invalid bounding box outside image: (%d, %d, %d, %d)' % (left, top, right, bottom), file=sys.stderr)
+                continue
 
-                        thres_sum = 0.
-                        thres_i_sum = 0.
+            np_lineimg = np_img[top:bottom,left:right]
+            # Simple grayscale invert
+            np_lineimg_invert = 255 - np.copy(np_lineimg)
 
-                        # TODO: This can be done way more efficiently in numpy
-                        for x in range(ww):
-                            for y in range(hh):
-                                if thres[x, y]:
-                                    thres_sum += ((center_x-x)**2+(center_y-y)**2)**0.5
-                                if thres_i[x, y]:
-                                    thres_i_sum += ((center_x-y)**2+(center_y-y)**2)**0.5
+            thres = threshold_image3(np_lineimg, dpi)
+            ones = np.count_nonzero(thres)
+            zero = (img.size[0] * img.size[1]) - ones
+            ratio = (ones/(zero+ones))*100
 
-                        if ones > 0:
-                            thres_sum /= ones
-                        if ones_i > 0:
-                            thres_i_sum /= ones_i
+            thres_invert = threshold_image3(np_lineimg_invert, dpi)
+            ones = np.count_nonzero(thres_invert)
+            zero = (img.size[0] * img.size[1]) - ones
+            inv_ratio = (ones/(zero+ones))*100
 
-                        if thres_sum < thres_i_sum:
-                            pass
-                        elif thres_i_sum > thres_sum:
-                            thres = thres_i
-                        else:
-                            # Won't really ever happen, but ok
-                            thres = thres_i | thres
+            if ratio < 0.2 or inv_ratio < 0.2:
+                th = None
+                perc_larger = 0.
+                if inv_ratio != 0.0:
+                    perc_larger = (ratio / inv_ratio) * 100
 
-                mask_arr[top:bottom, left:right] = thres
+                # Prefer ratio over inv_ratio by a bit
+                if (ratio < inv_ratio or perc_larger < 110.) and ratio < 0.2:
+                    th = thres
+                elif inv_ratio < 0.2:
+                    th = thres_invert
+
+                if th is not None:
+                    mask_arr[top:bottom, left:right] = th
 
     if timing_data is not None:
         timing_data.append(('hocr_mask_gen', time() - t))
 
 
-def create_threshold_mask(mask_arr, imgf, denoise_mask=None, timing_data=None):
+
+def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_data=None):
     # We don't apply any of these blurs to the hOCR mask, we want that as
     # sharp as possible.
 
@@ -297,7 +291,7 @@ def create_threshold_mask(mask_arr, imgf, denoise_mask=None, timing_data=None):
 
     t = time()
     #thres_arr = threshold_image3(np.array(imgf, dtype=np.uint8))
-    thres_arr = threshold_image3(imgf.astype(np.uint8))
+    thres_arr = threshold_image3(imgf.astype(np.uint8), dpi)
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
 
@@ -322,6 +316,7 @@ def create_threshold_mask(mask_arr, imgf, denoise_mask=None, timing_data=None):
 # TODO: Reduce amount of memory active at one given point (keep less images in
 # memory, write to disk sooner, etc), careful with numpy <-> PIL conversions
 def create_mrc_hocr_components(image, hocr_word_data,
+                               dpi=None,
                                downsample=None,
                                bg_downsample=None,
                                denoise_mask=None, timing_data=None,
@@ -354,16 +349,19 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
     # Modifies mask_arr in place
     create_hocr_mask(grayimg, mask_arr, hocr_word_data, downsample=downsample,
-                     timing_data=timing_data)
-
+                     dpi=dpi, timing_data=timing_data)
     grayimgf = np.array(grayimg, dtype=np.float32)
 
     MIX_THRESHOLD = True
     if MIX_THRESHOLD:
+        # XXX: this nukes the hocr threshold, testing only
+        # mask_arr = np.zeros(mask_arr.shape, dtype=np.bool)
+
         # Modifies mask_arr in place
-        #mask_arr = np.zeros(mask_arr.shape, dtype=np.bool) # XXX: this nukes the hocr threshold
-        create_threshold_mask(mask_arr, grayimgf, denoise_mask=denoise_mask,
-                timing_data=timing_data)
+        create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
+                              denoise_mask=denoise_mask,
+                              timing_data=timing_data)
+
     yield mask_arr
 
     image_arr = np.array(image)
