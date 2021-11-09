@@ -236,21 +236,6 @@ def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_da
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
 
-    if denoise_mask is not None and denoise_mask:
-        t = time()
-        sigma_est = mean_estimate_sigma(thres_arr)
-        if timing_data is not None:
-            timing_data.append(('est_3', time() - t))
-
-        if sigma_est > 0.1:
-            t = time()
-            thres_arr = denoise_bregman(thres_arr)
-            if timing_data is not None:
-                timing_data.append(('denoise', time() - t))
-
-
-    thres_inv = thres_arr ^ np.ones(thres_arr.shape, dtype=bool)
-
     mask_arr |= thres_arr
 
 
@@ -302,6 +287,12 @@ def create_mrc_hocr_components(image, hocr_word_data,
         create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
                               denoise_mask=denoise_mask,
                               timing_data=timing_data)
+
+    if denoise_mask:
+        t = time()
+        mask_arr = denoise_bregman(mask_arr)
+        if timing_data is not None:
+            timing_data.append(('denoise', time() - t))
 
     yield mask_arr
 
