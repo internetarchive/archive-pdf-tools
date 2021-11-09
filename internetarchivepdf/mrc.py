@@ -10,8 +10,8 @@ from time import time
 
 import warnings
 
-from PIL import Image, ImageEnhance, ImageOps
-from skimage.filters import threshold_local, threshold_otsu, threshold_sauvola
+from PIL import Image, ImageOps
+from skimage.filters import threshold_local, threshold_otsu
 from skimage.restoration import denoise_tv_bregman, estimate_sigma
 
 from scipy import ndimage
@@ -47,43 +47,7 @@ def mean_estimate_sigma(arr):
         return np.mean(estimate_sigma(arr))
 
 
-def threshold_image(img, rev=False, otsu=False, block_size=9):
-    """
-    Apply adaptive (local) thresholding, filtering out background noise to make
-    the text more readable.
-
-    Returns the thresholded np image array
-    """
-    if otsu:
-        try:
-            binary_otsu = threshold_otsu(img)
-        except ValueError:
-            binary_otsu = np.ndarray(img.shape)
-            binary_otsu[:] = 0
-
-        if rev:
-            binary_img = img > binary_otsu
-        else:
-            binary_img = img < binary_otsu
-    else:
-        #binary_local = threshold_local(img, block_size, method='gaussian')
-        #binary_local = threshold_local(img, block_size, offset=10, method='gaussian')
-        binary_local = threshold_local(img, block_size, method='gaussian')
-        if not rev:
-            binary_img = img < binary_local
-        else:
-            binary_img = img > binary_local
-
-    return binary_img
-
-
-def threshold_image2(np_image):
-    local = threshold_image(np_image)
-    otsu = threshold_image(np_image, otsu=True)
-
-    return local & otsu
-
-def threshold_image3(img, dpi):
+def threshold_image(img, dpi):
     window_size = 51
 
     if dpi is not None:
@@ -236,12 +200,12 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
             # Simple grayscale invert
             np_lineimg_invert = 255 - np.copy(np_lineimg)
 
-            thres = threshold_image3(np_lineimg, dpi)
+            thres = threshold_image(np_lineimg, dpi)
             ones = np.count_nonzero(thres)
             zero = (img.size[0] * img.size[1]) - ones
             ratio = (ones/(zero+ones))*100
 
-            thres_invert = threshold_image3(np_lineimg_invert, dpi)
+            thres_invert = threshold_image(np_lineimg_invert, dpi)
             ones = np.count_nonzero(thres_invert)
             zero = (img.size[0] * img.size[1]) - ones
             inv_ratio = (ones/(zero+ones))*100
@@ -268,7 +232,7 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
 
 def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_data=None):
     t = time()
-    thres_arr = threshold_image3(imgf.astype(np.uint8), dpi)
+    thres_arr = threshold_image(imgf.astype(np.uint8), dpi)
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
 
