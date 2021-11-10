@@ -51,7 +51,7 @@ def threshold_image(img, dpi):
     window_size = 51
 
     if dpi is not None:
-        window_size = int(dpi / 2)
+        window_size = int(dpi / 4)
         if window_size % 2 == 0:
             window_size += 1
 
