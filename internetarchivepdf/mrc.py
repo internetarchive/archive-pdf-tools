@@ -236,13 +236,32 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
         timing_data.append(('hocr_mask_gen', time() - t))
 
 
+def estimate_noise(imgf):
+    #sigma_est = mean_estimate_sigma(imgf)
+    #return sigma_est
+
+    # We do this only on a part of the image, because it's accurate enough wrt
+    # noise estimation (definitely for camera noise estimation since that's
+    # everywhere in the image, and it's quite a bit faster this way).
+    h, w = imgf.shape
+    MUL = 4
+    hs = int(h/2 - h/MUL)
+    he = int(h/2 + h/MUL)
+    ws = int(w/2 - w/MUL)
+    we = int(w/2 + w/MUL)
+    sigma_est = mean_estimate_sigma(imgf[hs:he, ws:we])
+
+    return sigma_est
+
+
 
 def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_data=None):
     # We don't apply any of these blurs to the hOCR mask, we want that as
     # sharp as possible.
 
     t = time()
-    sigma_est = mean_estimate_sigma(imgf)
+    sigma_est = estimate_noise(imgf)
+
     if timing_data is not None:
         timing_data.append(('est_1', time() - t))
     if sigma_est > 1.0:
