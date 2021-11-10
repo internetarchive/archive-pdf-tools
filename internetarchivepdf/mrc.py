@@ -174,10 +174,6 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
             if line_text.strip() == '' or line_conf < 20:
                 continue
 
-
-            # TODO: maybe work with font size per line and word confidence in
-            # the line
-
             if downsample is not None:
                 coords = [int(x/downsample) for x in coords]
             else:
@@ -206,24 +202,35 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
             ratio = (ones/(zero+ones))*100
 
             thres_invert = threshold_image(np_lineimg_invert, dpi)
-            ones = np.count_nonzero(thres_invert)
-            zero = (img.size[0] * img.size[1]) - ones
-            inv_ratio = (ones/(zero+ones))*100
+            ones_i = np.count_nonzero(thres_invert)
+            zero_i = (img.size[0] * img.size[1]) - ones
+            inv_ratio = (ones_i/(zero_i+ones_i))*100
 
-            if ratio < 0.2 or inv_ratio < 0.2:
+            if ratio < 0.3 or inv_ratio < 0.3:
                 th = None
+
                 perc_larger = 0.
                 if inv_ratio != 0.0:
                     perc_larger = (ratio / inv_ratio) * 100
 
-                # Prefer ratio over inv_ratio by a bit
-                if (ratio < inv_ratio or perc_larger < 110.) and ratio < 0.2:
+                if inv_ratio > 0.2 and ratio < 0.2:
                     th = thres
-                elif inv_ratio < 0.2:
-                    th = thres_invert
+                else:
+                    # mean_estimate_sigma is expensive, so let's only do it if
+                    # we need to
+
+                    ratio_sigma = mean_estimate_sigma(thres)
+                    inv_ratio_sigma = mean_estimate_sigma(thres_invert)
+
+                    # Prefer ratio over inv_ratio by a bit
+                    if inv_ratio < 0.2 and inv_ratio < ratio and inv_ratio_sigma < ratio_sigma:
+                        th = thres_invert
+                    elif ratio < 0.2:
+                        th = thres
 
                 if th is not None:
                     mask_arr[top:bottom, left:right] = th
+
 
     if timing_data is not None:
         timing_data.append(('hocr_mask_gen', time() - t))
