@@ -69,6 +69,37 @@ def threshold_image(img, dpi):
     return out_img
 
 
+def threshold_image_scribo(img):
+    pil_img = Image.fromarray(img)
+
+    img_p = '/tmp/out.tif'
+
+    pil_img.save(img_p)
+
+    p = '/home/merlijn/archive/ocrd_olena/repo/olena/scribo/src/binarization'
+
+    singh_p = '/tmp/out-singh.tif'
+    wolf_p = '/tmp/out-wolf.tif'
+    subprocess.check_call([p + '/singh', img_p, singh_p])
+    #subprocess.check_call([p + '/sauvola', img_p, wolf_p])
+    #subprocess.check_call([p + '/sauvola_ms', img_p, wolf_p])
+    #subprocess.check_call([p + '/wolf', img_p, wolf_p])
+
+    singh_img = np.array(Image.open(singh_p).convert('1'))
+    #wolf_img = np.array(Image.open(wolf_p).convert('1'))
+
+    #combined = singh_img
+    #combined = singh_img & wolf_img
+
+    #wolf_not_singh = wolf_img & ~singh_img
+
+    #wns_img = Image.fromarray(wolf_not_singh)
+    #wns_img.save('/tmp/out-wns.tif')
+
+    return singh_img
+    #return combined
+
+
 def denoise_bregman(binary_img):
     thresf = np.array(binary_img, dtype=np.float32)
     #denoise = denoise_tv_bregman(thresf, weight=0.25)
@@ -282,10 +313,13 @@ def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_da
 
     t = time()
     thres_arr = threshold_image(imgf.astype(np.uint8), dpi)
+    thres_arr = thres_arr & threshold_image_scribo(imgf.astype(np.uint8))
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
 
     mask_arr |= thres_arr
+
+    return thres_arr
 
 
 # TODO: Reduce amount of memory active at one given point (keep less images in
@@ -329,15 +363,26 @@ def create_mrc_hocr_components(image, hocr_word_data,
                      dpi=dpi, timing_data=timing_data)
     grayimgf = np.array(grayimg, dtype=np.float32)
 
+    hocr_mask = np.copy(mask_arr)
+    extra_mask = None
+
+
     MIX_THRESHOLD = True
     if MIX_THRESHOLD:
         # XXX: this nukes the hocr threshold, testing only
         # mask_arr = np.zeros(mask_arr.shape, dtype=np.bool)
 
         # Modifies mask_arr in place
-        create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
+        thres = create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
                               denoise_mask=denoise_mask,
                               timing_data=timing_data)
+
+        extra_mask = hocr_mask & ~thres
+        extra_mask = extra_mask.astype(np.float32)
+        extra_mask = ndimage.filters.gaussian_filter(extra_mask, sigma=2)
+        extra_mask = extra_mask > 0.
+        extra_mask = extra_mask.astype(np.bool)
+
 
     if denoise_mask != DENOISE_NONE:
         t = time()
@@ -371,7 +416,8 @@ def create_mrc_hocr_components(image, hocr_word_data,
     yield foreground_arr
     foreground_arr = None
 
-    mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
+    #mask_inv = mask_arr ^ np.ones(mask_arr.shape, dtype=bool)
+    mask_inv = (mask_arr|extra_mask) ^ np.ones(mask_arr.shape, dtype=bool)
 
     t = time()
     # Take background pixels and optimise the image by placing them where the
