@@ -313,13 +313,10 @@ def create_threshold_mask(mask_arr, imgf, dpi=None, denoise_mask=None, timing_da
 
     t = time()
     thres_arr = threshold_image(imgf.astype(np.uint8), dpi)
-    thres_arr = thres_arr & threshold_image_scribo(imgf.astype(np.uint8))
     if timing_data is not None:
         timing_data.append(('threshold', time() - t))
 
     mask_arr |= thres_arr
-
-    return thres_arr
 
 
 # TODO: Reduce amount of memory active at one given point (keep less images in
@@ -373,15 +370,20 @@ def create_mrc_hocr_components(image, hocr_word_data,
         # mask_arr = np.zeros(mask_arr.shape, dtype=np.bool)
 
         # Modifies mask_arr in place
-        thres = create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
+        create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
                               denoise_mask=denoise_mask,
                               timing_data=timing_data)
 
-        extra_mask = hocr_mask & ~thres
-        extra_mask = extra_mask.astype(np.float32)
-        extra_mask = ndimage.filters.gaussian_filter(extra_mask, sigma=2)
-        extra_mask = extra_mask > 0.
-        extra_mask = extra_mask.astype(np.bool)
+    # Extra binarisation, AND it with hocr_mask only
+    t = time()
+    thres_arr = threshold_image_scribo(grayimgf.astype(np.uint8))
+    extra_mask = hocr_mask & ~thres_arr
+    extra_mask = extra_mask.astype(np.float32)
+    extra_mask = ndimage.filters.gaussian_filter(extra_mask, sigma=3)
+    extra_mask = extra_mask > 0.
+    extra_mask = extra_mask.astype(np.bool)
+    if timing_data is not None:
+        timing_data.append(('threshold_extra', time() - t))
 
 
     if denoise_mask != DENOISE_NONE:
