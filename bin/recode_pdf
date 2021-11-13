@@ -10,7 +10,10 @@ from internetarchivepdf.const import (VERSION, PRODUCER,
         JPEG2000_IMPL_OPENJPEG,
         JPEG2000_IMPL_GROK,
         COMPRESSOR_JPEG2000,
-        COMPRESSOR_JPEG)
+        COMPRESSOR_JPEG,
+        DENOISE_NONE,
+        DENOISE_FAST,
+        DENOISE_BREGMAN)
 from shutil import which
 
 
@@ -110,10 +113,10 @@ if __name__ == '__main__':
     parser.add_argument('--bg-downsample', default=None, type=int,
                         help='Downsample background by factor.'
                              ' Default is no scaling')
-    parser.add_argument('--denoise-mask', default=None,
-                        help='Denoise mask when MRC algorithm thinks it needs'
-                             ' to denoise - which is not always.'
-                             ' Default is off', action='store_true')
+    parser.add_argument('--denoise-mask', default=DENOISE_FAST,
+                        choices=[DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN],
+                        help='Denoise mask to improve compression. '
+                             'Default is \'fast\'')
     parser.add_argument('--hq-pages', type=str, default=None,
                         help='Pages to render in higher quality, provided '
                              'as comma separate values, negative indexing is '

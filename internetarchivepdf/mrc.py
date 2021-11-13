@@ -17,7 +17,7 @@ from skimage.restoration import denoise_tv_bregman, estimate_sigma
 from scipy import ndimage
 import numpy as np
 
-from optimiser import optimise_gray, optimise_rgb, optimise_gray2, optimise_rgb2
+from optimiser import optimise_gray, optimise_rgb, optimise_gray2, optimise_rgb2, fast_mask_denoise
 from sauvola import binarise_sauvola
 
 import fitz
@@ -26,7 +26,8 @@ fitz.TOOLS.set_icc(True) # For good measure, not required
 
 from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, JPEG2000_IMPL_KAKADU,
         JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW,
-        COMPRESSOR_JPEG, COMPRESSOR_JPEG2000)
+        COMPRESSOR_JPEG, COMPRESSOR_JPEG2000, DENOISE_NONE, DENOISE_FAST,
+        DENOISE_BREGMAN)
 
 
 """
@@ -319,6 +320,8 @@ def create_mrc_hocr_components(image, hocr_word_data,
         if timing_data is not None:
             timing_data.append(('grey_conversion', time() - t))
 
+    width_, height_ = image.size
+
     mask_arr = np.array(Image.new('1', image.size))
 
     # Modifies mask_arr in place
@@ -336,11 +339,19 @@ def create_mrc_hocr_components(image, hocr_word_data,
                               denoise_mask=denoise_mask,
                               timing_data=timing_data)
 
-    if denoise_mask:
+    if denoise_mask != DENOISE_NONE:
         t = time()
-        mask_arr = denoise_bregman(mask_arr)
-        if timing_data is not None:
-            timing_data.append(('denoise', time() - t))
+        if denoise_mask == DENOISE_FAST:
+            fast_mask_denoise(mask_arr, width_, height_, 7, 2)
+            if timing_data is not None:
+                timing_data.append(('fast_denoise', time() - t))
+        elif denoise_mask == DENOISE_BREGMAN:
+            mask_arr = denoise_bregman(mask_arr)
+            if timing_data is not None:
+                timing_data.append(('denoise', time() - t))
+        else:
+            raise ValueError('Invalid denoise option:', denoise_mask)
+
 
     yield mask_arr
 
@@ -350,7 +361,6 @@ def create_mrc_hocr_components(image, hocr_word_data,
     # Take foreground pixels and optimise the image by making the surrounding
     # pixels like the foreground, allowing for more optimal compression (and
     # higher quality foreground pixels as a result)
-    width_, height_ = image.size
     if image.mode == 'L':
         foreground_arr = optimise_gray2(mask_arr, image_arr, width_, height_, 3)
     else:
