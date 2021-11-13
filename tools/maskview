@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+# Tool to extract each MRC layer mask and give it its own page in the outfile pdf.
+import fitz
+import sys
+
+from io import BytesIO
+
+from PIL import Jpeg2KImagePlugin, Image
+
+if len(sys.argv) < 2:
+    print('Usage: python maskview.py infile outfile')
+
+
+doc = fitz.open(sys.argv[1])
+newdoc = fitz.open()
+
+def add_image_page(inpage, outdoc, img_raw, stream=True):
+    p = outdoc.new_page(width=inpage.rect.width, height=inpage.rect.height)
+    p.insert_image(p.rect, stream=img_raw)
+
+
+for idx, page in enumerate(doc):
+    imgs = doc.get_page_images(pno=page.number)
+
+    for imgidx, img in enumerate(imgs):
+        img_maskxref = img[1]
+        if img_maskxref > 0:
+            mask = doc.extract_image(img_maskxref)
+            stream = mask['image']
+            add_image_page(page, newdoc, stream)
+
+
+newdoc.save(sys.argv[2], deflate=True, pretty=True)
