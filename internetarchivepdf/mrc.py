@@ -48,7 +48,7 @@ def mean_estimate_sigma(arr):
         return np.mean(estimate_sigma(arr))
 
 
-def threshold_image(img, dpi):
+def threshold_image(img, dpi, k=0.34):
     window_size = 51
 
     if dpi is not None:
@@ -61,7 +61,7 @@ def threshold_image(img, dpi):
     out_img = np.reshape(out_img, w*h)
     in_img = np.reshape(img, w*h)
 
-    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, 0.34, 128)
+    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, k, 128)
     out_img = np.reshape(out_img, (h, w))
     # TODO: optimise this, we can do it in binarise_sauvola
     out_img = np.invert(out_img)
@@ -376,15 +376,15 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
     # Extra binarisation, AND it with hocr_mask only
     t = time()
-    thres_arr = threshold_image_scribo(grayimgf.astype(np.uint8))
+    thres_arr = threshold_image(grayimgf.astype(np.uint8), dpi=dpi, k=0.5)
+    #thres_arr = threshold_image_scribo(grayimgf.astype(np.uint8))
     extra_mask = hocr_mask & ~thres_arr
     extra_mask = extra_mask.astype(np.float32)
-    extra_mask = ndimage.filters.gaussian_filter(extra_mask, sigma=3)
+    extra_mask = ndimage.filters.gaussian_filter(extra_mask, sigma=2)
     extra_mask = extra_mask > 0.
     extra_mask = extra_mask.astype(np.bool)
     if timing_data is not None:
         timing_data.append(('threshold_extra', time() - t))
-
 
     if denoise_mask != DENOISE_NONE:
         t = time()
@@ -398,7 +398,6 @@ def create_mrc_hocr_components(image, hocr_word_data,
                 timing_data.append(('denoise', time() - t))
         else:
             raise ValueError('Invalid denoise option:', denoise_mask)
-
 
     yield mask_arr
 
