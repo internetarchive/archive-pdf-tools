@@ -377,10 +377,8 @@ def fast_mask_denoise(np.ndarray[UINT8DTYPE_t, ndim=2] mask, int width, int
                     for ww in range(-n_size, n_size + 1):
                         cnt += mask[y - hh, x - ww]
                 # We count the current pixel with (hh=0, ww=0),
-                # this is faster than branching there
-                cnt -= 1
-
-                if cnt < mincnt:
-                    mask[y, x] = 0
+                # so subtract one from cnt,
+                # this is faster than branching in the loop
+                mask[y, x] = (cnt - 1) >= mincnt
 
     return mask
