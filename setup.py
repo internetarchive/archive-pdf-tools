@@ -24,7 +24,7 @@ setup(name='archive-pdf-tools',
       download_url='https://github.com/internetarchive/archive-pdf-tools/archive/%s.tar.gz' % version,
         keywords=['PDF', 'MRC', 'hOCR', 'Internet Archive'],
       license='AGPL-3.0',
-      scripts=['bin/recode_pdf', 'tools/mrcview', 'tools/maskview'],
+      scripts=['bin/recode_pdf', 'tools/mrcview', 'tools/maskview', 'tools/pdfimagesmrc'],
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Developers',
