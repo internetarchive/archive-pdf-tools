@@ -48,7 +48,7 @@ def mean_estimate_sigma(arr):
         return np.mean(estimate_sigma(arr))
 
 
-def threshold_image(img, dpi):
+def threshold_image(img, dpi, k=0.34):
     window_size = 51
 
     if dpi is not None:
@@ -61,7 +61,7 @@ def threshold_image(img, dpi):
     out_img = np.reshape(out_img, w*h)
     in_img = np.reshape(img, w*h)
 
-    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, 0.34, 128)
+    binarise_sauvola(in_img, out_img, w, h, window_size, window_size, k, 128)
     out_img = np.reshape(out_img, (h, w))
     # TODO: optimise this, we can do it in binarise_sauvola
     out_img = np.invert(out_img)
@@ -197,12 +197,15 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
             # Simple grayscale invert
             np_lineimg_invert = 255 - np.copy(np_lineimg)
 
-            thres = threshold_image(np_lineimg, dpi)
+            # XXX: If you tweak k, you must tweak the various ratio and sigma's
+            # based on the test images
+            k = 0.1
+            thres = threshold_image(np_lineimg, dpi, k)
             ones = np.count_nonzero(thres)
             zero = (img.size[0] * img.size[1]) - ones
             ratio = (ones/(zero+ones))*100
 
-            thres_invert = threshold_image(np_lineimg_invert, dpi)
+            thres_invert = threshold_image(np_lineimg_invert, dpi, k)
             ones_i = np.count_nonzero(thres_invert)
             zero_i = (img.size[0] * img.size[1]) - ones
             inv_ratio = (ones_i/(zero_i+ones_i))*100
@@ -224,7 +227,10 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
                     inv_ratio_sigma = mean_estimate_sigma(thres_invert)
 
                     # Prefer ratio over inv_ratio by a bit
-                    if inv_ratio < 0.2 and inv_ratio < ratio and inv_ratio_sigma < ratio_sigma:
+                    if inv_ratio < 0.3 and inv_ratio < ratio and \
+                    (inv_ratio_sigma < ratio_sigma or \
+                    (ratio_sigma < 0.1 and inv_ratio_sigma < 0.1)):
+                        print('Going for inv')
                         th = thres_invert
                     elif ratio < 0.2:
                         th = thres
