@@ -226,11 +226,11 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
                     ratio_sigma = mean_estimate_sigma(thres)
                     inv_ratio_sigma = mean_estimate_sigma(thres_invert)
 
+
                     # Prefer ratio over inv_ratio by a bit
                     if inv_ratio < 0.3 and inv_ratio < ratio and \
                     (inv_ratio_sigma < ratio_sigma or \
                     (ratio_sigma < 0.1 and inv_ratio_sigma < 0.1)):
-                        print('Going for inv')
                         th = thres_invert
                     elif ratio < 0.2:
                         th = thres
