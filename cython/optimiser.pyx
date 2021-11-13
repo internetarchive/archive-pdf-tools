@@ -355,3 +355,32 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
             #    new_img[y, x] = img[y, x]
 
     return new_img
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.warn.undeclared(True)
+def fast_mask_denoise(np.ndarray[UINT8DTYPE_t, ndim=2] mask, int width, int
+        height, int mincnt, int n_size):
+    cdef np.ndarray[UINT8DTYPE_t, ndim=2] new_img
+    cdef int x, y
+    cdef int cnt = 0;
+    cdef int ww = 0;
+    cdef int hh = 0;
+
+    for y in range(n_size, height - n_size):
+        for x in range(n_size, width - n_size):
+            if mask[y, x]:
+                cnt = 0
+                for hh in range(-n_size, n_size + 1):
+                    for ww in range(-n_size, n_size + 1):
+                        cnt += mask[y - hh, x - ww]
+                # We count the current pixel with (hh=0, ww=0),
+                # this is faster than branching there
+                cnt -= 1
+
+                if cnt < mincnt:
+                    mask[y, x] = 0
+
+    return mask
