@@ -65,4 +65,9 @@ test_images = [
      'dpi': 400,
      'hocr': 'hocr.html'
     },
+    {'identifier': 'nytimes',
+     'glob': 'sim_new-york-times_1969-02-27_118_40577_0000.jp2',
+     'dpi': 400,
+     'hocr': 'hocr.html'
+    },
 ]
