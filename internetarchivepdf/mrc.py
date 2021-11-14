@@ -348,7 +348,8 @@ def create_mrc_hocr_components(image, hocr_word_data,
     if denoise_mask != DENOISE_NONE:
         t = time()
         if denoise_mask == DENOISE_FAST:
-            fast_mask_denoise(mask_arr, width_, height_, 7, 2)
+            # XXX: We could make the mincnt parameter take the dpi into account
+            fast_mask_denoise(mask_arr, width_, height_, 4, 2)
             if timing_data is not None:
                 timing_data.append(('fast_denoise', time() - t))
         elif denoise_mask == DENOISE_BREGMAN:
