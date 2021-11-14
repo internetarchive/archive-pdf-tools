@@ -2,7 +2,7 @@ Internet Archive PDF tools
 ##########################
 
 :authors: - Merlijn Wajer <merlijn@archive.org>
-:date: 2021-08-14 18:00
+:date: 2021-11-14 18:00
 
 This repository contains a library to perform MRC (Mixed Raster Content)
 compression on images [*]_, which offers lossy high compression of images, in
@@ -20,6 +20,26 @@ files, too.
 While the code is already being used internally to create PDFs at the Internet
 Archive, the code still needs more documentation and cleaning up, so don't
 expect this to be super well documented just yet.
+
+
+Features
+========
+
+* Reliable: has produced over 6 million PDFs in 2021 alone (each with many
+  hundreds of pages)
+* Fast and robust compression: Competes directly with the proprietary software
+  offerings when it comes to speed and compressibility (often outperforming in
+  both)
+* MRC compression of images, leading to anywhere from 3-15x compression ratios,
+  depending on the quality setting provided.
+* Creates PDF from a directory of images
+* Improved compression based on OCR results (hOCR files)
+* Hidden text layer insertion based on hOCR files, which makes a PDF searchable
+  and the text copy-pasteable.
+* PDF/A 3b compatible.
+* Basic PDF/UA support (accessibility features)
+* Creation of 1 bit (black and white) PDFs
+
 
 Dependencies
 ============
@@ -44,22 +64,6 @@ One-of:
 For JBIG2 compression:
 
 * `jbig2enc <https://github.com/agl/jbig2enc>`_ for JBIG2 compression (and PyMuPDF 1.19.0 or higher)
-
-
-Features
-========
-
-* MRC compression of images, leading to anywhere from 3-15x compression ratios,
-  depending on the quality setting provided.
-* Creates PDF from a directory of images
-* Improved compression based on OCR results (hOCR files)
-* Hidden text layer insertion based on hOCR files, which makes a PDF searchable
-  and the text copy-pasteable.
-* PDF/A 3b compatible.
-* Basic PDF/UA support (accessibility features)
-* Support for optional denoising of masks to further improve compression
-  (--denoise-mask)
-* Creation of 1 bit (black and white) PDFs
 
 
 
@@ -116,31 +120,26 @@ followed by the foreground image, which uses the mask as it's alpha layer.
 Usage
 -----
 
-Scan a document, OCR it with Tesseract and save the result as a compressed PDF
+Creating a PDF from a set of images is pretty straightforward::
+
+
+    recode_pdf --from-imagestack 'sim_english-illustrated-magazine_1884-12_2_15_jp2/*' \
+        --hocr-file sim_english-illustrated-magazine_1884-12_2_15_hocr.html \
+        --dpi 400 --bg-downsample 3 \
+        -m 2 -t 10 --jbig2 \
+        -o /tmp/example.pdf
+    [...]
+    Processed 9 pages at 1.16 seconds/page
+    Compression ratio: 7.144962
+
+
+
+Or, to scan a document, OCR it with Tesseract and save the result as a compressed PDF
 (JPEG2000 compression with OpenJPEG, background downsamples three times), with
 text layer::
 
-    scanimage --resolution 300 --mode Color --format tiff | tee /tmp/scan.tiff | tesseract - - hocr > /tmp/scan.hocr ; recode_pdf -v --use-openjpeg --bg-downsample 3 --denoise-mask --from-imagestack /tmp/scan.tiff --hocr-file /tmp/scan.hocr -o /tmp/scan.pdf
-    Page 1
-         MMX
-         SSE
-         SSE2
-         SSE3
-         SSSE3
-         SSE41
-         POPCNT
-         SSE42
-         AVX
-         F16C
-    Creating text only PDF
-    Starting page generation at 2021-03-05T00:22:59.294929
-    Finished page generation at 2021-03-05T00:22:59.319370
-    Creating text pages took 0.0245 seconds
-    Inserting (and compressing) images
-    Converting with image mode: 2
-    Fixing up pymupdf metadata
-    mupdf warnings, if any: ''
-    Saving PDF now
+    scanimage --resolution 300 --mode Color --format tiff | tee /tmp/scan.tiff | tesseract - - hocr > /tmp/scan.hocr ; recode_pdf -v -J openjpeg --bg-downsample 3 --from-imagestack /tmp/scan.tiff --hocr-file /tmp/scan.hocr -o /tmp/scan.pdf
+    [...]
     Processed 1 pages at 11.40 seconds/page
     Compression ratio: 249.876613
 
@@ -148,13 +147,13 @@ text layer::
 Examining the results
 ---------------------
 
-`mrcview (tools/mrcview) is shipped with the package and can be used to turn a
+``mrcview`` (tools/mrcview) is shipped with the package and can be used to turn a
 MRC-compressed PDF into a PDF with each layer on a separate page, this is the
 easiest way to inspect the resulting compression. Run it like so:
 
     mrcview /tmp/compressed.pdf /tmp/mrc.pdf
 
-... and then open `/tmp/mrc.pdf` in your favourite PDF reader.
+There is also ``maskview``, which just renders the masks of a PDF to another PDF.
 
 Alternatively, one could use ``pdfimages`` to extract the image layers of a
 specific page and then view them with your favourite image viewer::
@@ -163,7 +162,7 @@ specific page and then view them with your favourite image viewer::
     feh extracted_image_base*.png
 
 `tools/pdfimagesmrc` can be used to check how the size of the PDF
-is broken down into the foreground, background and masks.
+is broken down into the foreground, background, masks and text layer.
 
 License
 =======
