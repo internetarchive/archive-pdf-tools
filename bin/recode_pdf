@@ -113,6 +113,9 @@ if __name__ == '__main__':
     parser.add_argument('--bg-downsample', default=None, type=int,
                         help='Downsample background by factor.'
                              ' Default is no scaling')
+    parser.add_argument('--fg-downsample', default=None, type=int,
+                        help='Downsample foreground by factor.'
+                             ' Default is no scaling')
     parser.add_argument('--denoise-mask', default=DENOISE_FAST,
                         choices=[DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN],
                         help='Denoise mask to improve compression. '
@@ -265,6 +268,7 @@ if __name__ == '__main__':
            args.mrc_image_format,
            args.downsample,
            args.bg_downsample,
+           args.fg_downsample,
            args.denoise_mask,
            args.hq_pages,
            args.hq_bg_compression_flags.split(' '),

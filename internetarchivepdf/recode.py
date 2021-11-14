@@ -329,6 +329,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         skip_pages=None, img_dir=None, jbig2=False,
         downsample=None,
         bg_downsample=None,
+        fg_downsample=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_compression_flags=None, hq_fg_compression_flags=None,
         verbose=False, tmp_dir=None, report_every=None,
@@ -492,8 +493,10 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             ww, hh = image.size
             mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
                     dpi=picked_dpi,
-                    downsample=downsample, bg_downsample=None if render_hq else
-                    bg_downsample, denoise_mask=denoise_mask,
+                    downsample=downsample,
+                    bg_downsample=None if render_hq else bg_downsample,
+                    fg_downsample=None if render_hq else fg_downsample,
+                    denoise_mask=denoise_mask,
                     timing_data=timing_data, errors=errors)
             np_mask = next(mrc_gen)
             np_mask = np_mask ^ np.ones(np_mask.shape, dtype=bool)
@@ -517,8 +520,10 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         else:
             mrc_gen = create_mrc_hocr_components(image, hocr_word_data,
                     dpi=picked_dpi,
-                    downsample=downsample, bg_downsample=None if render_hq else
-                    bg_downsample, denoise_mask=denoise_mask,
+                    downsample=downsample,
+                    bg_downsample=None if render_hq else bg_downsample,
+                    fg_downsample=None if render_hq else fg_downsample,
+                    denoise_mask=denoise_mask,
                     timing_data=timing_data, errors=errors)
 
 
@@ -964,6 +969,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         mrc_image_format=None,
         downsample=None,
         bg_downsample=None,
+        fg_downsample=None,
         denoise_mask=None,
         hq_pages=None,
         hq_bg_compression_flags=None, hq_fg_compression_flags=None,
@@ -1078,6 +1084,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           jbig2=jbig2,
                           downsample=downsample,
                           bg_downsample=bg_downsample,
+                          fg_downsample=fg_downsample,
                           denoise_mask=denoise_mask,
                           reporter=reporter,
                           hq_pages=HQ_PAGES,

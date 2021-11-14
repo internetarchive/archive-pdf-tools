@@ -300,6 +300,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
                                dpi=None,
                                downsample=None,
                                bg_downsample=None,
+                               fg_downsample=None,
                                denoise_mask=None, timing_data=None,
                                errors=None):
     """
@@ -375,6 +376,23 @@ def create_mrc_hocr_components(image, hocr_word_data,
     if timing_data is not None:
         # The name fg_partial_blur is kept for backwards compatibility
         timing_data.append(('fg_partial_blur', time() - t))
+
+    if fg_downsample is not None:
+        t = time()
+        image2 = Image.fromarray(foreground_arr)
+        w, h = image2.size
+        w_downsample = int(w / fg_downsample)
+        h_downsample = int(h / fg_downsample)
+        if w_downsample > 0 and h_downsample > 0:
+            image2.thumbnail((w_downsample, h_downsample))
+            foreground_arr = np.array(image2)
+        else:
+            if errors is not None:
+                errors.add(RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE)
+
+        if timing_data is not None:
+            timing_data.append(('fg_downsample', time() - t))
+
     yield foreground_arr
     foreground_arr = None
 
