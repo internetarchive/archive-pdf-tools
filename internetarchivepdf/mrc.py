@@ -272,6 +272,14 @@ def estimate_noise(imgf):
     he = int(h/2 + h/MUL)
     ws = int(w/2 - w/MUL)
     we = int(w/2 + w/MUL)
+
+    # Really small image?
+    if he == 0 or we == 0:
+        hs = 0
+        he = h
+        ws = 0
+        we = w
+
     sigma_est = mean_estimate_sigma(imgf[hs:he, ws:we])
 
     return sigma_est
