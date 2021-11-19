@@ -431,7 +431,8 @@ def create_mrc_hocr_components(image, hocr_word_data,
     return
 
 
-def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
+def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
+                    timing_data=None):
     """
     Encode mask image either to JBIG2 or PNG.
 
@@ -440,6 +441,7 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
     * np_mask (numpy.array): Mask image array
     * tmp_dir (str): path the temporary directory to write images to
     * jbig2 (bool): Whether to encode to JBIG2 or PNG
+    * embedded_jbig2 (bool): Whether to encode to JBIG2 with or without header
     * timing_data (optional): Add time information to timing_data structure
 
     Returns a tuple: (str, str) where the first entry is the jbig2
@@ -457,7 +459,10 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, timing_data=None):
     mask.save(mask_img_png, compress_level=0)
 
     if jbig2:
-        out = subprocess.check_output(['jbig2', mask_img_png])
+        if embedded_jbig2:
+            out = subprocess.check_output(['jbig2', '-p', mask_img_png])
+        else:
+            out = subprocess.check_output(['jbig2', mask_img_png])
         fp= open(mask_img_jbig2, 'wb+')
         fp.write(out)
         fp.close()
@@ -611,8 +616,10 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
 
 def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=None,
                       tmp_dir=None, jbig2=True, timing_data=None,
-                      jpeg2000_implementation=None, mrc_image_format=None):
-    mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen), tmp_dir=tmp_dir, jbig2=jbig2,
+                      jpeg2000_implementation=None, mrc_image_format=None,
+                      embedded_jbig2=False):
+    mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen),
+            tmp_dir=tmp_dir, jbig2=jbig2, embedded_jbig2=embedded_jbig2,
             timing_data=timing_data)
 
     np_fg = next(mrc_gen)

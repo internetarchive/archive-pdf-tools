@@ -11,6 +11,8 @@ from internetarchivepdf.const import (VERSION, PRODUCER,
         JPEG2000_IMPL_GROK,
         COMPRESSOR_JPEG2000,
         COMPRESSOR_JPEG,
+        COMPRESSOR_JBIG2,
+        COMPRESSOR_CCITT,
         DENOISE_NONE,
         DENOISE_FAST,
         DENOISE_BREGMAN)
@@ -70,8 +72,10 @@ if __name__ == '__main__':
                         help='Compression mode. 0 is pass-through, 1 is pixmap'
                               ' 2 is MRC (default is 2). 3 is skip images',
                               type=int)
-    parser.add_argument('--jbig2', default=True, help='Encode using jbig2',
-                        action='store_true')
+    parser.add_argument('--mask-compression',
+                        choices=[COMPRESSOR_JBIG2, COMPRESSOR_CCITT],
+                        default=COMPRESSOR_JBIG2,
+                        help='Mask (lossless) compression')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='Verbose output')
     parser.add_argument('--tmp-dir', default=None, type=str,
@@ -260,7 +264,9 @@ if __name__ == '__main__':
            args.reporter,
            args.grayscale_pdf,
            args.bw_pdf,
-           args.image_mode, args.jbig2, args.verbose, args.tmp_dir,
+           args.image_mode,
+           args.mask_compression == COMPRESSOR_JBIG2,
+           args.verbose, args.tmp_dir,
            args.report_every, args.stop_after,
            args.jpeg2000_implementation,
            args.bg_compression_flags.split(' '),

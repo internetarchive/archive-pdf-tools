@@ -29,6 +29,7 @@ from internetarchivepdf.mrc import KDU_EXPAND, OPJ_DECOMPRESS, \
         GRK_DECOMPRESS, \
         create_mrc_hocr_components, \
         encode_mrc_images, encode_mrc_mask
+from internetarchivepdf.pdfhacks import fast_insert_image
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
@@ -533,30 +534,46 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # separately from here so that we can free the arrays sooner (and even
             # get the images separately from the create_mrc_hocr_components call)
 
+            fast_insert_image_ok = jbig2 and image.mode in ('L', 'RGB')
+
             mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
                     bg_compression_flags=hq_bg_compression_flags if render_hq else bg_compression_flags,
                     fg_compression_flags=hq_fg_compression_flags if render_hq else fg_compression_flags,
                     tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
                     jpeg2000_implementation=jpeg2000_implementation,
-                    mrc_image_format=mrc_image_format)
+                    mrc_image_format=mrc_image_format,
+                    embedded_jbig2=fast_insert_image_ok)
 
             if img_dir is not None:
                 shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
                 shutil.copy(bg_f, join(img_dir, '%.6d_bg.jp2' % idx))
                 shutil.copy(fg_f, join(img_dir, '%.6d_fg.jp2' % idx))
 
+
             t = time()
             bg_contents = open(bg_f, 'rb').read()
-            # Tell PyMuPDF about width/height/alpha since it's faster this way
-            page.insert_image(page.rect, stream=bg_contents, mask=None,
+            if not jbig2 or image.mode not in ('L', 'RGB'):
+                # Tell PyMuPDF about width/height/alpha since it's faster this way
+                page.insert_image(page.rect, stream=bg_contents, mask=None,
                     overlay=False, width=bg_s[0], height=bg_s[1], alpha=0)
+            else:
+                fast_insert_image(page, page.rect, stream=bg_contents,
+                                  mask=None, width=bg_s[0], height=bg_s[1],
+                                  stream_fmt=mrc_image_format,
+                                  gray=image.mode == 'L')
 
             fg_contents = open(fg_f, 'rb').read()
             mask_contents = open(mask_f, 'rb').read()
 
             # Tell PyMuPDF about width/height/alpha since it's faster this way
-            page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
-                    overlay=True, width=fg_s[0], height=fg_s[1], alpha=0)
+            if not jbig2 or image.mode not in ('L', 'RGB'):
+                page.insert_image(page.rect, stream=fg_contents, mask=mask_contents,
+                        overlay=True, width=fg_s[0], height=fg_s[1], alpha=0)
+            else:
+                fast_insert_image(page, page.rect, stream=fg_contents,
+                                  mask=mask_contents, width=fg_s[0], height=fg_s[1],
+                                  stream_fmt=mrc_image_format,
+                                  gray=image.mode == 'L')
 
             # Remove leftover files
             remove(mask_f)
