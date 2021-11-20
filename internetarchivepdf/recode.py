@@ -193,7 +193,8 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 # the image size!
                 fd = open(imgfile, 'rb')
                 try:
-                    size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
+                    size, mode, mimetype, dpi = Jpeg2KImagePlugin._parse_jp2_header(fd)
+                    # TODO: use dpi here somehow? It's a new addition in Pillow 8.4.0
                 except Exception:
                     # JP2 lacks some info and PIL doesn't like it (Image.open
                     # will not work, so use kdu_expand to create a tiff)
