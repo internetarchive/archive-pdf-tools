@@ -3,19 +3,12 @@
 import sys
 from internetarchivepdf.recode import recode
 from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
-        OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
+    OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
-        JPEG2000_IMPL_KAKADU,
-        JPEG2000_IMPL_OPENJPEG,
-        JPEG2000_IMPL_GROK,
-        COMPRESSOR_JPEG2000,
-        COMPRESSOR_JPEG,
-        COMPRESSOR_JBIG2,
-        COMPRESSOR_CCITT,
-        DENOISE_NONE,
-        DENOISE_FAST,
-        DENOISE_BREGMAN)
+        JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK,
+        COMPRESSOR_JPEG2000, COMPRESSOR_JPEG, COMPRESSOR_JBIG2, COMPRESSOR_CCITT,
+        DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN)
 from shutil import which
 
 
@@ -23,9 +16,9 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(
-            description='PDF recoder version %s.' % VERSION +
-                        ' Compresses PDFs with images and inserts text layers '
-                        ' based on hOCR input files.')
+        description='PDF recoder version %s.' % VERSION +
+        ' Compresses PDFs with images and inserts text layers '
+        ' based on hOCR input files.')
 
     # For Python 3.6, 3.7
     class ExtendAction(argparse.Action):
@@ -37,155 +30,156 @@ if __name__ == '__main__':
     # End for Python 3.6, 3.7
 
     input_args = parser.add_argument_group('Compression arguments',
-            description='Various compression options')
+                                           description='Various compression options')
     comp_args = parser.add_argument_group('Compression arguments',
-            description='Various compression options')
-    image_args = parser.add_argument_group('Image', description='Arguments pertaining to images (downsample, denoise mask, dpi')
-    metadata_args = parser.add_argument_group('Metadata', description='Metadata related arguments')
+                                          description='Various compression options')
+    image_args = parser.add_argument_group(
+        'Image', description='Arguments pertaining to images (downsample, denoise mask, dpi')
+    metadata_args = parser.add_argument_group(
+        'Metadata', description='Metadata related arguments')
     misc_args = parser.add_argument_group('Miscellaneous')
 
 
 
     input_args.add_argument('-P', '--from-pdf', type=str, default=None,
-                        help='Input PDF (containing images) to recode')
+                            help='Input PDF (containing images) to recode')
     input_args.add_argument('-I', '--from-imagestack', type=str, default=None,
-                        help='Glob pattern for image stack')
+                            help='Glob pattern for image stack')
     input_args.add_argument('-T', '--hocr-file', type=str, default=None,
-                        help='hOCR file containing page information '
-                              '(currently not optional)')
+                            help='hOCR file containing page information '
+                            '(currently not optional)')
     input_args.add_argument('-S', '--scandata-file', type=str, default=None,
-                        help='archive.org specific.'
-                              'Scandata XML file containing information on '
-                              'which pages to skip (optional). This is helpful '
-                              'if the input PDF is a PDF where certain '
-                              'pages have already been skipped, but the hOCR '
-                              'still has the pages in its file structure, '
-                              'and is also used for page labels (numbering)')
+                            help='archive.org specific.'
+                            'Scandata XML file containing information on '
+                            'which pages to skip (optional). This is helpful '
+                            'if the input PDF is a PDF where certain '
+                            'pages have already been skipped, but the hOCR '
+                            'still has the pages in its file structure, '
+                            'and is also used for page labels (numbering)')
     input_args.add_argument('-o', '--out-pdf', type=str, default=None,
-                        help='Output file to write recoded PDF to.')
+                            help='Output file to write recoded PDF to.')
     input_args.add_argument('-O', '--out-dir', type=str, default=None,
-                        help='Output directory to (also) write images to.')
+                            help='Output directory to (also) write images to.')
 
     misc_args.add_argument('-R', '--reporter', type=str, default=None,
-                        help='Program to launch when reporting progress.')
+                           help='Program to launch when reporting progress.')
     misc_args.add_argument('--grayscale-pdf', action='store_true',
-                        default=False,
-                        help='Whether to convert all images to grayscale in '
-                             'the resulting PDF')
+                           default=False,
+                           help='Whether to convert all images to grayscale in '
+                           'the resulting PDF')
     misc_args.add_argument('--bw-pdf', action='store_true',
-                        default=False,
-                        help='Whether to convert all images 1 bit images in '
-                             'the resulting PDF')
+                           default=False,
+                           help='Whether to convert all images 1 bit images in '
+                           'the resulting PDF')
     misc_args.add_argument('-v', '--verbose', default=False, action='store_true',
-                        help='Verbose output')
+                           help='Verbose output')
     misc_args.add_argument('--tmp-dir', default=None, type=str,
-                        help='Directory to store temporary intermediate images')
+                           help='Directory to store temporary intermediate images')
     misc_args.add_argument('--report-every', default=None, type=int,
-                        help='Report on status every N pages '
-                             '(default is no reporting)')
+                           help='Report on status every N pages '
+                           '(default is no reporting)')
     misc_args.add_argument('-t', '--stop-after', default=None, type=int,
-                        help='Stop after N pages (default is no stop)')
+                           help='Stop after N pages (default is no stop)')
     misc_args.add_argument('--render-text-lines', action='store_true',
-                        default=False,
-                        help='Whether to render the text line visible instead '
-                             'of invisible')
+                           default=False,
+                           help='Whether to render the text line visible instead '
+                           'of invisible')
     # TODO: Support JPEG2000_IMPL_PILLOW
 
     comp_args.add_argument('-m', '--image-mode', default=IMAGE_MODE_MRC,
-                        help='Compression mode. 0 is pass-through, 1 is pixmap'
-                              ' 2 is MRC (default is 2). 3 is skip images',
-                              type=int)
+                           help='Compression mode. 0 is pass-through, 1 is pixmap'
+                           ' 2 is MRC (default is 2). 3 is skip images',
+                           type=int)
     comp_args.add_argument('--mask-compression',
-                        choices=[COMPRESSOR_JBIG2, COMPRESSOR_CCITT],
-                        default=COMPRESSOR_JBIG2,
-                        help='Mask (lossless) compression')
+                           choices=[COMPRESSOR_JBIG2, COMPRESSOR_CCITT],
+                           default=COMPRESSOR_JBIG2,
+                           help='Mask (lossless) compression')
     comp_args.add_argument('-J', '--jpeg2000-implementation', type=str,
-                        default=JPEG2000_IMPL_KAKADU,
-                        choices=[JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
-                            JPEG2000_IMPL_GROK],
-                        help='Selects JPEG2000 implementation.')
+                           default=JPEG2000_IMPL_KAKADU,
+                           choices=[JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
+                                    JPEG2000_IMPL_GROK],
+                           help='Selects JPEG2000 implementation.')
     comp_args.add_argument('--bg-compression-flags', default=None, type=str,
-                        help='Background compression flags for JPEG2000 '
-                             'compression. '
-                              'Default for kakadu is \'-slope 44250\','
-                              'default for grok/openjpeg is \'-q 30\'.'
-                             'Pass with quoted and with a space at the start:'
-                             '\' --flag value\'')
+                           help='Background compression flags for JPEG2000 '
+                           'compression. '
+                           'Default for kakadu is \'-slope 44250\','
+                           'default for grok/openjpeg is \'-q 30\'.'
+                           'Pass with quoted and with a space at the start:'
+                           '\' --flag value\'')
     comp_args.add_argument('--fg-compression-flags', default=None, type=str,
-                        help='Foreground compression flags for JPEG2000 '
-                             'compression. '
-                              'Default for kakadu is \'-slope 44500\','
-                              'default for grok/openjpeg is \'-q 30\'.'
-                             'Pass with quoted and with a space at the start:'
-                             '\' --flag value\'')
+                           help='Foreground compression flags for JPEG2000 '
+                           'compression. '
+                           'Default for kakadu is \'-slope 44500\','
+                           'default for grok/openjpeg is \'-q 30\'.'
+                           'Pass with quoted and with a space at the start:'
+                           '\' --flag value\'')
     comp_args.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
-                        type=str,
-                        choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
-                        help='Image formats to produce in MRC encoding. '
-                              'JPEG2000 yields better compression and quality '
-                              'at the expense of computation')
+                           type=str,
+                           choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
+                           help='Image formats to produce in MRC encoding. '
+                           'JPEG2000 yields better compression and quality '
+                           'at the expense of computation')
     comp_args.add_argument('--hq-pages', type=str, default=None,
-                        help='Pages to render in higher quality, provided '
-                             'as comma separate values, negative indexing is '
-                             'allowed, e.g.: --hq-pages \'1,2,3,4,-4,-3,-2,-1\''
-                             ' will make the first four and last four pages '
-                             'of a higher quality. Pages marked as higher '
-                             'quality will not get downsampled and might use '
-                             'different slope values (see '
-                             '--hq-bg-compression-flags and '
-                             '--hq-fg-compression-flags)')
+                           help='Pages to render in higher quality, provided '
+                           'as comma separate values, negative indexing is '
+                           'allowed, e.g.: --hq-pages \'1,2,3,4,-4,-3,-2,-1\''
+                           ' will make the first four and last four pages '
+                           'of a higher quality. Pages marked as higher '
+                           'quality will not get downsampled and might use '
+                           'different slope values (see '
+                           '--hq-bg-compression-flags and '
+                           '--hq-fg-compression-flags)')
     comp_args.add_argument('--hq-bg-compression-flags', default=None, type=str,
-                        help='High quality background compression flags for '
-                             'JPEG2000 compression. '
-                             'Default for kakadu is \'-slope 43500\','
-                             'default for grok/openjpeg is \'-q 40\'.'
-                             'Pass with quoted and with a space at the start:'
-                             '\' --flag value\'')
+                           help='High quality background compression flags for '
+                           'JPEG2000 compression. '
+                           'Default for kakadu is \'-slope 43500\','
+                           'default for grok/openjpeg is \'-q 40\'.'
+                           'Pass with quoted and with a space at the start:'
+                           '\' --flag value\'')
     comp_args.add_argument('--hq-fg-compression-flags', type=str,
-                        help='High quality foreground compression flags for '
-                             'JPEG2000 compression. '
-                             'Default for kakadu is \'-slope 44500\','
-                             'default for grok/openjpeg is \'-q 30\'.'
-                             'Pass with quoted and with a space at the start:'
-                             '\' --flag value\'')
+                           help='High quality foreground compression flags for '
+                           'JPEG2000 compression. '
+                           'Default for kakadu is \'-slope 44500\','
+                           'default for grok/openjpeg is \'-q 30\'.'
+                           'Pass with quoted and with a space at the start:'
+                           '\' --flag value\'')
 
     image_args.add_argument('-D', '--dpi', type=int, default=None,
-                        help='DPI of input images, supply this to get '
-                             'proportional page sizes in resulting PDF')
+                            help='DPI of input images, supply this to get '
+                            'proportional page sizes in resulting PDF')
     image_args.add_argument('--denoise-mask', default=DENOISE_FAST,
-                        choices=[DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN],
-                        help='Denoise mask to improve compression. '
-                             'Default is \'fast\'')
+                            choices=[DENOISE_NONE,
+                                     DENOISE_FAST, DENOISE_BREGMAN],
+                            help='Denoise mask to improve compression. '
+                            'Default is \'fast\'')
     image_args.add_argument('--downsample', default=None, type=int,
-                        help='Downsample entire image by factor before '
-                              'processing. Default is no downscaling.')
+                            help='Downsample entire image by factor before '
+                            'processing. Default is no downscaling.')
     image_args.add_argument('--bg-downsample', default=None, type=int,
-                        help='Downsample background by factor.'
-                             ' Default is no scaling')
+                            help='Downsample background by factor.'
+                            ' Default is no scaling')
     image_args.add_argument('--fg-downsample', default=None, type=int,
-                        help='Downsample foreground by factor.'
-                             ' Default is no scaling')
-
+                            help='Downsample foreground by factor.'
+                            ' Default is no scaling')
 
     metadata_args.add_argument('--metadata-url', type=str, default=None,
-                        help='URL describing document, if any')
+                               help='URL describing document, if any')
     metadata_args.add_argument('--metadata-title', type=str, default=None,
-                        help='Title of PDF document')
+                               help='Title of PDF document')
     metadata_args.add_argument('--metadata-author', type=str, default=None,
-                        help='Author of document')
+                               help='Author of document')
     metadata_args.add_argument('--metadata-creator', type=str, default=None,
-                        help='Creator of PDF document')
+                               help='Creator of PDF document')
     metadata_args.add_argument('--metadata-language', type=str, default=None,
-                        nargs='+', action='extend',
-                        help='Language of PDF document, see RFC 3066. '
-                             'If multiple languages are specified, only the '
-                             'first is added to the PDF catalog, but all of '
-                             'them will end up in the XMP metadata')
+                               nargs='+', action='extend',
+                               help='Language of PDF document, see RFC 3066. '
+                               'If multiple languages are specified, only the '
+                               'first is added to the PDF catalog, but all of '
+                               'them will end up in the XMP metadata')
     metadata_args.add_argument('--metadata-subject', type=str, default=None,
-                        help='Subjects')
+                               help='Subjects')
     metadata_args.add_argument('--metadata-creatortool', type=str, default=None,
-                        help='Creator tool')
-
+                               help='Creator tool')
 
     args = parser.parse_args()
     if (args.from_pdf is None and args.from_imagestack is None) or args.out_pdf is None:
@@ -275,29 +269,29 @@ if __name__ == '__main__':
 
 
     res = recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
-           args.scandata_file, args.out_pdf, args.out_dir,
-           args.reporter,
-           args.grayscale_pdf,
-           args.bw_pdf,
-           args.image_mode,
-           args.mask_compression == COMPRESSOR_JBIG2,
-           args.verbose, args.tmp_dir,
-           args.report_every, args.stop_after,
-           args.jpeg2000_implementation,
-           args.bg_compression_flags.split(' '),
-           args.fg_compression_flags.split(' '),
-           args.mrc_image_format,
-           args.downsample,
-           args.bg_downsample,
-           args.fg_downsample,
-           args.denoise_mask,
-           args.hq_pages,
-           args.hq_bg_compression_flags.split(' '),
-           args.hq_fg_compression_flags.split(' '),
-           args.render_text_lines,
-           args.metadata_url, args.metadata_title, args.metadata_author,
-           args.metadata_creator, args.metadata_language,
-           args.metadata_subject, args.metadata_creatortool)
+                 args.scandata_file, args.out_pdf, args.out_dir,
+                 args.reporter,
+                 args.grayscale_pdf,
+                 args.bw_pdf,
+                 args.image_mode,
+                 args.mask_compression == COMPRESSOR_JBIG2,
+                 args.verbose, args.tmp_dir,
+                 args.report_every, args.stop_after,
+                 args.jpeg2000_implementation,
+                 args.bg_compression_flags.split(' '),
+                 args.fg_compression_flags.split(' '),
+                 args.mrc_image_format,
+                 args.downsample,
+                 args.bg_downsample,
+                 args.fg_downsample,
+                 args.denoise_mask,
+                 args.hq_pages,
+                 args.hq_bg_compression_flags.split(' '),
+                 args.hq_fg_compression_flags.split(' '),
+                 args.render_text_lines,
+                 args.metadata_url, args.metadata_title, args.metadata_author,
+                 args.metadata_creator, args.metadata_language,
+                 args.metadata_subject, args.metadata_creatortool)
 
     errors = res['errors']
     if len(errors) > 0:
