@@ -16,7 +16,8 @@
 #
 # Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
 #
-# Functions to (more quickly) create and modify PDFs.
+# Functions to (more quickly) create and modify PDFs, as well as some other low
+# level PDF writing code.
 #
 # Some of this code is contributed by Jorj X. McKie <jorj.x.mckie@outlook.de>
 # License in this file if AGPL-3 (like most of the project)
@@ -24,8 +25,15 @@
 # For fast_insert_image, see this for more background:
 # https://github.com/pymupdf/PyMuPDF/issues/1408
 
+import pkg_resources
+from math import ceil
+from datetime import datetime
+from xml.sax.saxutils import escape as xmlescape
+
 from internetarchivepdf.const import COMPRESSOR_JPEG, COMPRESSOR_JPEG2000, \
-        COMPRESSOR_JBIG2
+        COMPRESSOR_JBIG2, PRODUCER
+from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
+from internetarchivepdf.scandata import scandata_xml_get_page_numbers
 
 
 JPX_TEMPL = """<<
@@ -165,3 +173,324 @@ def fast_insert_image(page, rect=None, width=0, height=0, stream=None,
 
     # now we are ready to insert the image
     return page.insert_image(rect, xref=nxref)
+
+
+# XXX: tmp.icc - pick proper one and ship it with the tool, or embed it
+def write_pdfa(to_pdf):
+    srgbxref = to_pdf.get_new_xref()
+    to_pdf.update_object(srgbxref, """
+<<
+      /Alternate /DeviceRGB
+      /N 3
+>>
+""")
+    icc = pkg_resources.resource_string('internetarchivepdf', "data/tmp.icc")
+    to_pdf.update_stream(srgbxref, icc, new=True)
+
+    intentxref = to_pdf.get_new_xref()
+    to_pdf.update_object(intentxref, """
+<<
+  /Type /OutputIntent
+  /S /GTS_PDFA1
+  /OutputConditionIdentifier (Custom)
+  /Info (sRGB IEC61966-2.1)
+  /DestOutputProfile %d 0 R
+>>
+""" % srgbxref)
+
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
+    s = s[:-2]
+    s += '  /OutputIntents [ %d 0 R ]' % intentxref
+    s += '>>'
+    to_pdf.update_object(catalogxref, s)
+
+
+def write_page_labels(to_pdf, scandata, errors=None):
+    page_numbers = scandata_xml_get_page_numbers(scandata)
+    res, all_ok = parse_series(page_numbers)
+
+    # Add warning/error
+    if errors is not None and not all_ok:
+        errors.add(RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS)
+
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
+    s = s[:-2]
+    s += series_to_pdf(res)
+    s += '>>'
+    to_pdf.update_object(catalogxref, s)
+
+
+
+def write_basic_ua(to_pdf, language=None):
+    # Create StructTreeRoot and descendants, allocate new xrefs as needed
+    structtreeroot_xref = to_pdf.get_new_xref()
+    parenttree_xref = to_pdf.get_new_xref()
+    page_info_xrefs = []
+    page_info_a_xrefs = []
+    parenttree_kids_xrefs = []
+    parenttree_kids_indirect_xrefs = []
+
+    kids_cnt = ceil(to_pdf.pageCount / 32)
+    for _ in range(kids_cnt):
+        kid_xref = to_pdf.get_new_xref()
+        parenttree_kids_xrefs.append(kid_xref)
+
+    # Parent tree contains a /Kids entry with a list of xrefs, that each contain
+    # a list of xrefs (limited to 32 per), and each entry in that list of list
+    # of xrefs contains a single reference that points to the page info xref.
+    for idx, page in enumerate(to_pdf):
+        page_info_xref = to_pdf.get_new_xref()
+        page_info_xrefs.append(page_info_xref)
+
+        page_info_a_xref = to_pdf.get_new_xref()
+        page_info_a_xrefs.append(page_info_a_xref)
+
+        parenttree_kids_indirect_xref = to_pdf.get_new_xref()
+        parenttree_kids_indirect_xrefs.append(parenttree_kids_indirect_xref)
+
+
+    for idx in range(kids_cnt):
+        start = idx*32
+        stop = (idx+1)*31
+        if stop > to_pdf.page_count:
+            stop = to_pdf.page_count- 1
+
+        s = """<<
+  /Limits [ %d %d ]
+""" % (start, stop - 1)
+        s += '  /Nums [ '
+
+        for pidx in range(start, stop):
+            s += '%d %d 0 R ' % (pidx, parenttree_kids_indirect_xrefs[pidx])
+
+            if idx % 7 == 0:
+                s = s[:-1] + '\n' + '      '
+
+        s += ']\n>>'
+
+        to_pdf.update_object(parenttree_kids_xrefs[idx], s)
+
+
+    for idx, page in enumerate(to_pdf):
+        intrect = tuple([int(x) for x in page.rect])
+
+        s = """<<
+  /BBox [ %d %d %d %d ]
+  /InlineAlign /Center
+  /O /Layout
+  /Placement /Block
+>>
+""" % intrect
+        to_pdf.update_object(page_info_a_xrefs[idx], s)
+
+        s = """ <<
+  /A %d 0 R
+  /K 0
+  /P %d 0 R
+  /Pg %d 0 R
+  /S /Figure
+>>""" % (page_info_a_xrefs[idx], structtreeroot_xref, page.xref)
+
+        to_pdf.update_object(page_info_xrefs[idx], s)
+
+
+    for idx, page in enumerate(to_pdf):
+        s = '[ %d 0 R ]' % page_info_a_xrefs[idx]
+        to_pdf.update_object(parenttree_kids_indirect_xrefs[idx], s)
+
+
+    K = '  /Kids [ '
+    for idx in range(kids_cnt):
+        K += '%d 0 R ' % parenttree_kids_xrefs[idx]
+
+        if idx % 7 == 0:
+            K = K[:-1] + '\n' + '      '
+
+    K += ']'
+    s = """<<
+%s
+>>
+""" % K
+
+    to_pdf.update_object(parenttree_xref, s)
+
+    K = '  /K [ '
+    for idx, xref in enumerate(page_info_xrefs):
+        K += '%d 0 R ' % xref
+
+        if idx % 7 == 0:
+            K = K[:-1] + '\n' + '      '
+
+    K += ']'
+
+    to_pdf.update_object(structtreeroot_xref, """
+<<
+""" + K + """
+  /Type /StructTreeRoot
+  /ParentTree %d 0 R
+>>
+""" % parenttree_xref)
+
+    #  TODO? /ClassMap 1006 0 R
+    #  TODO? /ParentTreeNextKey 198
+
+
+    # Update pages, add back xrefs
+    for idx, page in enumerate(to_pdf):
+        page_data = to_pdf.xref_object(page.xref)
+        page_data = page_data[:-2]
+
+        page_data += """
+  /StructParents %d
+""" % idx
+
+        page_data += """
+  /CropBox [ 0 0 %.1f %.1f ]
+""" % (page.rect[2], page.rect[3])
+
+        page_data += """
+  /Rotate 0
+"""
+        page_data += """
+  /Tabs /S
+"""
+        page_data += '>>'
+        to_pdf.update_object(page.xref, page_data)
+
+    catalogxref = to_pdf.pdf_catalog()
+    s = to_pdf.xref_object(to_pdf.pdf_catalog())
+    s = s[:-2]
+    s += """
+  /ViewerPreferences <<
+    /FitWindow true
+    /DisplayDocTitle true
+  >>
+"""
+    if language:
+        s += """
+  /Lang (%s)
+""" % language
+
+    s += """
+  /MarkInfo <<
+    /Marked true
+  >>
+"""
+    s += """
+  /StructTreeRoot %d 0 R
+""" % structtreeroot_xref
+
+    s += '>>'
+    to_pdf.update_object(catalogxref, s)
+
+
+def write_metadata(from_pdf, to_pdf, extra_metadata):
+    doc_md = from_pdf.metadata if from_pdf is not None else {}
+
+    doc_md['producer'] = PRODUCER
+
+    if 'url' in extra_metadata:
+        doc_md['keywords'] = extra_metadata['url']
+    if 'title' in extra_metadata:
+        doc_md['title'] = extra_metadata['title']
+    if 'author' in extra_metadata:
+        doc_md['author'] = extra_metadata['author']
+    if 'creator' in extra_metadata:
+        doc_md['creator'] = extra_metadata['creator']
+    if 'subject' in extra_metadata:
+        doc_md['subject'] = extra_metadata['subject']
+
+    current_time = 'D:' + datetime.utcnow().strftime('%Y%m%d%H%M%SZ')
+    if from_pdf is not None:
+        doc_md['creationDate'] = from_pdf.metadata['creationDate']
+    else:
+        doc_md['creationDate'] = current_time
+    doc_md['modDate'] = current_time
+
+    # Set PDF basic metadata
+    to_pdf.set_metadata(doc_md)
+
+    have_xmlmeta = (from_pdf is not None) and (from_pdf.xref_xml_metadata() > 0)
+    if have_xmlmeta:
+        xml_xref = from_pdf.xref_xml_metadata()
+
+        # Just copy the existing XML, perform no validity checks
+        xml_bytes = from_pdf.xrefStream(xml_xref)
+        to_pdf.set_xml_metadata(xml_bytes.decode('utf-8'))
+    else:
+        current_time = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
+
+        stream='''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+        <x:xmpmeta xmlns:x="adobe:ns:meta/">
+          <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+              <xmp:CreateDate>{createdate}</xmp:CreateDate>
+              <xmp:MetadataDate>{metadatadate}</xmp:MetadataDate>
+              <xmp:ModifyDate>{modifydate}</xmp:ModifyDate>
+              <xmp:CreatorTool>{creatortool}</xmp:CreatorTool>'''.format(creatortool=xmlescape(extra_metadata.get('creatortool', PRODUCER)),
+           createdate=current_time, metadatadate=current_time,
+           modifydate=current_time)
+
+        stream += '''
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'''
+
+        if 'url' in extra_metadata:
+            stream += '''
+              <pdf:Keywords>{keywords}</pdf:Keywords>'''.format(keywords=xmlescape(extra_metadata['url']))
+
+        stream += '''
+              <pdf:Producer>{producer}</pdf:Producer>'''.format(producer=xmlescape(PRODUCER))
+
+        stream += '''
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'''
+
+        if extra_metadata.get('title'):
+            stream += '''
+              <dc:title>
+                <rdf:Alt>
+                  <rdf:li xml:lang="x-default">{title}</rdf:li>
+                </rdf:Alt>
+              </dc:title>'''.format(title=xmlescape(extra_metadata.get('title')))
+
+        # "An entity responsible for making the resource."
+        # https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/creator
+        # So should be author...
+        if extra_metadata.get('author'):
+            stream += '''
+              <dc:creator>
+                <rdf:Seq>
+                  <rdf:li>{author}</rdf:li>
+                </rdf:Seq>
+              </dc:creator>'''.format(author=xmlescape(extra_metadata.get('author')))
+
+        # TODO: Support multiple languages here?
+
+        if extra_metadata.get('language'):
+        # Empty language field means unknown language
+            stream += '''
+              <dc:language>
+                <rdf:Bag>'''
+
+            for language in extra_metadata.get('language', []):
+                stream += '''
+                  <rdf:li>{language}</rdf:li>'''.format(language=xmlescape(language))
+
+            stream += '''
+                </rdf:Bag>
+              </dc:language>'''
+
+        stream += '''
+            </rdf:Description>
+            <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+              <pdfaid:part>3</pdfaid:part>
+              <pdfaid:conformance>B</pdfaid:conformance>
+            </rdf:Description>
+          </rdf:RDF>
+        </x:xmpmeta>
+        <?xpacket end="r"?>'''
+
+        to_pdf.set_xml_metadata(stream)
