@@ -539,10 +539,10 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
     else:
         if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
             fd, img_tiff = mkstemp(prefix=imgtype, suffix='.tiff', dir=tmp_dir)
-        else:
+            close(fd)
+        elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
             fd, img_tiff = mkstemp(prefix=imgtype, suffix='.pnm', dir=tmp_dir)
-
-        close(fd)
+            close(fd)
 
     fd, img_jp2 = mkstemp(prefix=imgtype, suffix='.jp2', dir=tmp_dir)
     close(fd)
@@ -560,7 +560,6 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
         tmpfd.write(output)
         tmpfd.close()
     else:
-
         if jpeg2000_implementation == JPEG2000_IMPL_PILLOW:
             kwargs = _jpeg2000_pillow_str_to_kwargs(img_compression_flags[0])
             img.save(img_jp2, **kwargs)
