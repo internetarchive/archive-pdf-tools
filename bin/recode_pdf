@@ -103,14 +103,14 @@ if __name__ == '__main__':
                            help='Background compression flags for JPEG2000 '
                            'compression. '
                            'Default for kakadu is \'-slope 44250\','
-                           'default for grok/openjpeg is \'-q 30\'.'
+                           'default for grok/openjpeg is \'-r 500\'. '
                            'Pass with quoted and with a space at the start:'
                            '\' --flag value\'')
     comp_args.add_argument('--fg-compression-flags', default=None, type=str,
                            help='Foreground compression flags for JPEG2000 '
                            'compression. '
                            'Default for kakadu is \'-slope 44500\','
-                           'default for grok/openjpeg is \'-q 30\'.'
+                           'default for grok/openjpeg is \'-r 750\'. '
                            'Pass with quoted and with a space at the start:'
                            '\' --flag value\'')
     comp_args.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
@@ -133,14 +133,14 @@ if __name__ == '__main__':
                            help='High quality background compression flags for '
                            'JPEG2000 compression. '
                            'Default for kakadu is \'-slope 43500\','
-                           'default for grok/openjpeg is \'-q 40\'.'
+                           'default for grok/openjpeg is \'-r 100\'.'
                            'Pass with quoted and with a space at the start:'
                            '\' --flag value\'')
     comp_args.add_argument('--hq-fg-compression-flags', type=str,
                            help='High quality foreground compression flags for '
                            'JPEG2000 compression. '
                            'Default for kakadu is \'-slope 44500\','
-                           'default for grok/openjpeg is \'-q 30\'.'
+                           'default for grok/openjpeg is \'-r 300\'.'
                            'Pass with quoted and with a space at the start:'
                            '\' --flag value\'')
 
@@ -214,16 +214,16 @@ if __name__ == '__main__':
 
             if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
                 if args.bg_compression_flags is None:
-                    args.bg_compression_flags = '-q 40'
+                    args.bg_compression_flags = '-r 500'
 
                 if args.fg_compression_flags is None:
-                    args.fg_compression_flags = '-q 30'
+                    args.fg_compression_flags = '-r 750'
 
                 if args.hq_bg_compression_flags is None:
-                    args.hq_bg_compression_flags = '-q 40'
+                    args.hq_bg_compression_flags = '-r 100'
 
                 if args.hq_fg_compression_flags is None:
-                    args.hq_fg_compression_flags = '-q 30'
+                    args.hq_fg_compression_flags = '-r 300'
 
                 if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
                     sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
@@ -231,16 +231,16 @@ if __name__ == '__main__':
 
             if args.jpeg2000_implementation == JPEG2000_IMPL_GROK:
                 if args.bg_compression_flags is None:
-                    args.bg_compression_flags = '-q 40'
+                    args.bg_compression_flags = '-r 500'
 
                 if args.fg_compression_flags is None:
-                    args.fg_compression_flags = '-q 30'
+                    args.fg_compression_flags = '-r 750'
 
                 if args.hq_bg_compression_flags is None:
-                    args.hq_bg_compression_flags = '-q 40'
+                    args.hq_bg_compression_flags = '-r 100'
 
                 if args.hq_fg_compression_flags is None:
-                    args.hq_fg_compression_flags = '-q 30'
+                    args.hq_fg_compression_flags = '-r 300'
 
                 if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
                     sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
