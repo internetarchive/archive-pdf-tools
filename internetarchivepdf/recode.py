@@ -361,7 +361,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Do not subtract skipped pages here
             imgfile = image_files[idx+skipped_pages]
 
-            if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
+            if (imgfile.endswith('.jp2') or imgfile.endswith('.jpx')) and jpeg2000_implementation != JPEG2000_IMPL_PILLOW:
                 # TODO: If we have pillow jpeg2000 implementation, let's use it
                 # and not do the whole tmpfile dance.
 
@@ -403,15 +403,16 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                             '-i', imgfile, '-o', tiff_in], stderr=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL)
                 else:
-                    # TODO: could use pillow fallback, but let's do that before
-                    # we make tmpfiles
                     raise Exception('Error: invalid jpeg2000 implementation?')
 
                 image = Image.open(tiff_in)
                 image.load()
                 os.remove(tiff_in)
+
             else:
                 image = Image.open(imgfile)
+                image.load()
+
             if timing_data is not None:
                 timing_data.append(('image_load', time()-t))
 

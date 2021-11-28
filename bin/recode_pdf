@@ -6,7 +6,7 @@ from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
     OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
-        JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK,
+        JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW,
         COMPRESSOR_JPEG2000, COMPRESSOR_JPEG, COMPRESSOR_JBIG2, COMPRESSOR_CCITT,
         DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN)
 from shutil import which
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     comp_args.add_argument('-J', '--jpeg2000-implementation', type=str,
                            default=JPEG2000_IMPL_KAKADU,
                            choices=[JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
-                                    JPEG2000_IMPL_GROK],
+                                    JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW],
                            help='Selects JPEG2000 implementation.')
     comp_args.add_argument('--bg-compression-flags', default=None, type=str,
                            help='Background compression flags for JPEG2000 '
@@ -245,6 +245,23 @@ if __name__ == '__main__':
                 if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
                     sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
                     sys.exit(1)
+
+            if args.jpeg2000_implementation == JPEG2000_IMPL_PILLOW:
+                # This is pretty hacky, we turn this into a string and interpret
+                # it again later using ast.literal_eval
+                if args.bg_compression_flags is None:
+                    args.bg_compression_flags = 'quality_mode:"rates";quality_layers:[500]'
+
+                if args.fg_compression_flags is None:
+                    args.fg_compression_flags = 'quality_mode:"rates";quality_layers:[750]'
+
+                if args.hq_bg_compression_flags is None:
+                    args.hq_bg_compression_flags = 'quality_mode:"rates";quality_layers:[100]'
+
+                if args.hq_fg_compression_flags is None:
+                    args.hq_fg_compression_flags = 'quality_mode:"rates";quality_layers:[300]'
+
+                # TODO: Check for pillow version (if it supports jpeg2000 writing)
 
         elif args.mrc_image_format == COMPRESSOR_JPEG:
             # TODO: Check jpegoptim args

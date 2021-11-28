@@ -500,6 +500,16 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
         return None, mask_img_png
 
 
+def _jpeg2000_pillow_str_to_kwargs(s):
+    import ast
+    kwargs = {}
+    for en in s.split(';'):
+        k, v = en.split(':', maxsplit=1)
+        kwargs[k] = ast.literal_eval(v)
+
+    return kwargs
+
+
 def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
         jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
@@ -521,47 +531,56 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
     # Create background
     if mrc_image_format == COMPRESSOR_JPEG:
         fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.jpg', dir=tmp_dir)
+        close(fd)
     else:
         if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
             fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.tiff', dir=tmp_dir)
         else:
             fd, bg_img_tiff = mkstemp(prefix='bg', suffix='.pnm', dir=tmp_dir)
 
-    close(fd)
+        close(fd)
+
     fd, bg_img_jp2 = mkstemp(prefix='bg', suffix='.jp2', dir=tmp_dir)
     close(fd)
     remove(bg_img_jp2) # XXX: Kakadu doesn't want the file to exist, so what are
                        # we even doing
 
     bg_img = Image.fromarray(np_bg)
-    if mrc_image_format == COMPRESSOR_JPEG:
-        bg_img.save(bg_img_tiff, quality=100)
-    else:
-        bg_img.save(bg_img_tiff)
 
     if mrc_image_format == COMPRESSOR_JPEG:
+        bg_img.save(bg_img_tiff, quality=100)
+
         output = subprocess.check_output(['jpegoptim'] + bg_compression_flags +
                 [bg_img_tiff, '--stdout'])
         tmpfd=open(bg_img_jp2, 'bw+') # XXX: FIXME: this defeats the point of a tmpfile
         tmpfd.write(output)
         tmpfd.close()
-    elif jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
-        subprocess.check_call([KDU_COMPRESS,
-            '-num_threads', '0',
-            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-        subprocess.check_call([OPJ_COMPRESS,
-            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
-        subprocess.check_call([GRK_COMPRESS, '-H', '1',
-            '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:
-        raise Exception('Error: invalid jpeg2000 implementation?')
 
-    remove(bg_img_tiff)
+        if jpeg2000_implementation == JPEG2000_IMPL_PILLOW:
+            kwargs = _jpeg2000_pillow_str_to_kwargs(bg_compression_flags[0])
+            bg_img.save(bg_img_jp2, **kwargs)
+            #bg_img.save(bg_img_jp2, quality_mode='rates', quality_layers=[500])
+        else:
+            bg_img.save(bg_img_tiff)
+
+            if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+                subprocess.check_call([KDU_COMPRESS,
+                    '-num_threads', '0',
+                    '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
+                subprocess.check_call([OPJ_COMPRESS,
+                    '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
+                subprocess.check_call([GRK_COMPRESS, '-H', '1',
+                    '-i', bg_img_tiff, '-o', bg_img_jp2] + bg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            else:
+                raise Exception('Error: invalid jpeg2000 implementation?')
+
+            remove(bg_img_tiff)
 
     if timing_data is not None:
         timing_data.append(('bg_jp2', time()-t))
@@ -590,47 +609,54 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
     # Create foreground
     if mrc_image_format == COMPRESSOR_JPEG:
         fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.jpg', dir=tmp_dir)
+        close(fd)
     else:
         if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
             fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.tiff', dir=tmp_dir)
         else:
             fd, fg_img_tiff = mkstemp(prefix='fg', suffix='.pnm', dir=tmp_dir)
+        close(fd)
 
-    close(fd)
     fd, fg_img_jp2 = mkstemp(prefix='fg', suffix='.jp2', dir=tmp_dir)
     close(fd)
     remove(fg_img_jp2) # XXX: Kakadu doesn't want the file to exist, so what are
                        # we even doing
 
     fg_img = Image.fromarray(np_fg)
-    if mrc_image_format == COMPRESSOR_JPEG:
-        fg_img.save(fg_img_tiff, quality=100)
-    else:
-        fg_img.save(fg_img_tiff)
 
     if mrc_image_format == COMPRESSOR_JPEG:
+        fg_img.save(fg_img_tiff, quality=100)
+
         output = subprocess.check_output(['jpegoptim'] + fg_compression_flags +
                 [fg_img_tiff, '--stdout'])
         tmpfd=open(fg_img_jp2, 'bw+') # XXX: FIXME: this defeats the point of a tmpfile
         tmpfd.write(output)
         tmpfd.close()
-    elif jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
-        subprocess.check_call([KDU_COMPRESS,
-            '-num_threads', '0',
-            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-        subprocess.check_call([OPJ_COMPRESS,
-            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
-        subprocess.check_call([GRK_COMPRESS, '-H', '1',
-            '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
-            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:
-        raise Exception('Error: invalid jpeg2000 implementation?')
+        if jpeg2000_implementation == JPEG2000_IMPL_PILLOW:
+            kwargs = _jpeg2000_pillow_str_to_kwargs(fg_compression_flags[0])
+            fg_img.save(fg_img_jp2, **kwargs)
+            #fg_img.save(fg_img_jp2, quality_mode='rates', quality_layers=[750])
+        else:
+            fg_img.save(fg_img_tiff)
 
-    remove(fg_img_tiff)
+            if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+                subprocess.check_call([KDU_COMPRESS,
+                    '-num_threads', '0',
+                    '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
+                subprocess.check_call([OPJ_COMPRESS,
+                    '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
+                subprocess.check_call([GRK_COMPRESS, '-H', '1',
+                    '-i', fg_img_tiff, '-o', fg_img_jp2] + fg_compression_flags,
+                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            else:
+                raise Exception('Error: invalid jpeg2000 implementation?')
+
+            remove(fg_img_tiff)
 
     if timing_data is not None:
         timing_data.append(('fg_jp2', time()-t))
