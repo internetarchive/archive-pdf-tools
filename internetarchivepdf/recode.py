@@ -410,8 +410,17 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
 
                 image = Image.open(tiff_in)
                 image.load()
-                os.remove(tiff_in)
 
+                # Windows complains that Pillow doesn't actually close the fd
+                # (not sure why, .load() should close the fd, but it doesn't
+                # seem to, and we can't use .close() since we need the image
+                # later on
+                if sys.platform == 'win32':
+                    new_img = image.copy()
+                    image.close()
+                    image = new_img
+
+                os.remove(tiff_in)
             else:
                 image = Image.open(imgfile)
                 image.load()
