@@ -840,6 +840,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         print('Compression ratio: %f' % (compression_ratio))
 
     # 5. Remove leftover files
+    outdoc.close()
     remove(tess_tmp_path)
 
     return {'errors': errors,
