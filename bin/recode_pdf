@@ -95,7 +95,7 @@ if __name__ == '__main__':
                            default=COMPRESSOR_JBIG2,
                            help='Mask (lossless) compression')
     comp_args.add_argument('-J', '--jpeg2000-implementation', type=str,
-                           default=JPEG2000_IMPL_KAKADU,
+                           default=JPEG2000_IMPL_PILLOW,
                            choices=[JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
                                     JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW],
                            help='Selects JPEG2000 implementation.')
