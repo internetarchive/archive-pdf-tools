@@ -154,8 +154,11 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                         stdout=subprocess.DEVNULL)
 
                     img = Image.open(tiff_in)
+
+                    # img.load() will release the file descriptor
+                    img.load()
                     size = img.size
-                    del img
+                    img = None
                     os.remove(tiff_in)
                 finally:
                     fd.close()
