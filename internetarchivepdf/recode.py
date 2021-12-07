@@ -33,15 +33,12 @@ import io
 
 
 from PIL import Image
-from PIL import Jpeg2KImagePlugin
 import numpy as np
 import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)
-from internetarchivepdf.mrc import KDU_EXPAND, OPJ_DECOMPRESS, \
-        GRK_DECOMPRESS, \
-        create_mrc_hocr_components, \
+from internetarchivepdf.mrc import create_mrc_hocr_components, \
         encode_mrc_images, encode_mrc_mask
 from internetarchivepdf.grayconvert import special_gray_convert
 from internetarchivepdf.pdfhacks import fast_insert_image, write_pdfa, \
@@ -50,6 +47,7 @@ from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
         scandata_xml_get_page_numbers, scandata_xml_get_dpi_per_page, \
         scandata_xml_get_document_dpi
+from internetarchivepdf.jpeg2000 import decode_jpeg2000, get_jpeg2000_info
 from internetarchivepdf.const import (IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP,
         IMAGE_MODE_MRC, RECODE_RUNTIME_WARNING_INVALID_PAGE_SIZE,
         RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS,
@@ -94,6 +92,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
         verbose=False, stop_after=None,
         render_text_lines=False,
         tmp_dir=None,
+        jpeg2000_implementation=None,
         errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
@@ -135,34 +134,7 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             imgfile = image_files[idx]
 
             if imgfile.endswith('.jp2'):
-                # Pillow reads the entire file for JPEG2000 images - just to get
-                # the image size!
-                fd = open(imgfile, 'rb')
-                try:
-                    size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
-                except Exception:
-                    # JP2 lacks some info and PIL doesn't like it (Image.open
-                    # will not work, so use kdu_expand to create a tiff)
-                    if errors is not None:
-                        errors.add(RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS)
-
-                    fd2, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
-                    os.close(fd2)
-                    os.remove(tiff_in)
-                    subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                        tiff_in], stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL)
-
-                    img = Image.open(tiff_in)
-
-                    # img.load() will release the file descriptor
-                    img.load()
-                    size = img.size
-                    img = None
-                    os.remove(tiff_in)
-                finally:
-                    fd.close()
-
+                size, _ = get_jpeg2000_info(imgfile, jpeg2000_implementation, errors)
                 imwidth, imheight = size
             else:
                 img = Image.open(imgfile)
@@ -364,63 +336,12 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Do not subtract skipped pages here
             imgfile = image_files[idx+skipped_pages]
 
-            if (imgfile.endswith('.jp2') or imgfile.endswith('.jpx')) and jpeg2000_implementation != JPEG2000_IMPL_PILLOW:
-                # TODO: If we have pillow jpeg2000 implementation, let's use it
-                # and not do the whole tmpfile dance.
-
-                if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
-                    fd, tiff_in = mkstemp(prefix='in', suffix='.tiff', dir=tmp_dir)
-                else:
-                    fd, tiff_in = mkstemp(prefix='in', suffix='.pnm', dir=tmp_dir)
-                os.close(fd)
-                os.remove(tiff_in)
-
-                if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
-                    if downsample is not None:
-                        subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                            tiff_in, '-reduce', str(downsample-1)], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                        downsampled = True
-                    else:
-                        subprocess.check_call([KDU_EXPAND, '-i', imgfile, '-o',
-                            tiff_in], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-                    if downsample is not None:
-                        subprocess.check_call([OPJ_DECOMPRESS, '-r',
-                            str(downsample-1), '-i', imgfile, '-o',
-                            tiff_in], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                    else:
-                        subprocess.check_call([OPJ_DECOMPRESS, '-i', imgfile, '-o',
-                            tiff_in], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
-                    if downsample is not None:
-                        subprocess.check_call([GRK_DECOMPRESS, '-r',
-                            str(downsample-1), '-H', '1', '-i', imgfile, '-o',
-                            tiff_in], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                    else:
-                        subprocess.check_call([GRK_DECOMPRESS, '-H', '1',
-                            '-i', imgfile, '-o', tiff_in], stderr=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL)
-                else:
-                    raise Exception('Error: invalid jpeg2000 implementation?')
-
-                image = Image.open(tiff_in)
-                image.load()
-
-                # Windows complains that Pillow doesn't actually close the fd
-                # (not sure why, .load() should close the fd, but it doesn't
-                # seem to, and we can't use .close() since we need the image
-                # later on
-                if sys.platform == 'win32':
-                    new_img = image.copy()
-                    image.close()
-                    image = new_img
-
-                os.remove(tiff_in)
+            # Potentially special path
+            if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
+                image = decode_jpeg2000(imgfile, reduce_=downsample,
+                        impl=jpeg2000_implementation)
+                if downsample:
+                    downsampled = True
             else:
                 image = Image.open(imgfile)
                 image.load()
@@ -711,6 +632,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
             verbose=verbose, stop_after=stop,
             render_text_lines=render_text_lines,
             tmp_dir=tmp_dir,
+            jpeg2000_implementation=jpeg2000_implementation,
             errors=errors)
 
     if verbose:

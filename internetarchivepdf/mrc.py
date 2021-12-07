@@ -40,22 +40,13 @@ import fitz
 
 fitz.TOOLS.set_icc(True) # For good measure, not required
 
-from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, JPEG2000_IMPL_KAKADU,
-        JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW,
-        COMPRESSOR_JPEG, COMPRESSOR_JPEG2000, DENOISE_NONE, DENOISE_FAST,
-        DENOISE_BREGMAN)
+from internetarchivepdf.jpeg2000 import encode_jpeg2000
+from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, COMPRESSOR_JPEG,
+        COMPRESSOR_JPEG2000, DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN)
 
 
 """
 """
-
-KDU_COMPRESS = 'kdu_compress'
-KDU_EXPAND = 'kdu_expand'
-OPJ_COMPRESS = 'opj_compress'
-OPJ_DECOMPRESS = 'opj_decompress'
-GRK_COMPRESS = 'grk_compress'
-GRK_DECOMPRESS = 'grk_decompress'
-
 
 # skimage throws useless UserWarnings in various functions
 def mean_estimate_sigma(arr):
@@ -500,16 +491,6 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
         return None, mask_img_png
 
 
-def _jpeg2000_pillow_str_to_kwargs(s):
-    import ast
-    kwargs = {}
-    for en in s.split(';'):
-        k, v = en.split(':', maxsplit=1)
-        kwargs[k] = ast.literal_eval(v)
-
-    return kwargs
-
-
 def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
         jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
@@ -536,13 +517,6 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
     if mrc_image_format == COMPRESSOR_JPEG:
         fd, img_tiff = mkstemp(prefix=imgtype, suffix='.jpg', dir=tmp_dir)
         close(fd)
-    else:
-        if jpeg2000_implementation in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
-            fd, img_tiff = mkstemp(prefix=imgtype, suffix='.tiff', dir=tmp_dir)
-            close(fd)
-        elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-            fd, img_tiff = mkstemp(prefix=imgtype, suffix='.pnm', dir=tmp_dir)
-            close(fd)
 
     fd, img_jp2 = mkstemp(prefix=imgtype, suffix='.jp2', dir=tmp_dir)
     close(fd)
@@ -560,29 +534,9 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
         tmpfd.write(output)
         tmpfd.close()
     else:
-        if jpeg2000_implementation == JPEG2000_IMPL_PILLOW:
-            kwargs = _jpeg2000_pillow_str_to_kwargs(img_compression_flags[0])
-            img.save(img_jp2, **kwargs)
-        else:
-            img.save(img_tiff)
+        encode_jpeg2000(img, img_jp2, jpeg2000_implementation,
+                        img_compression_flags, imgtype=imgtype)
 
-            if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
-                subprocess.check_call([KDU_COMPRESS,
-                    '-num_threads', '0',
-                    '-i', img_tiff, '-o', img_jp2] + img_compression_flags,
-                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            elif jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
-                subprocess.check_call([OPJ_COMPRESS,
-                    '-i', img_tiff, '-o', img_jp2] + img_compression_flags,
-                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            elif jpeg2000_implementation == JPEG2000_IMPL_GROK:
-                subprocess.check_call([GRK_COMPRESS, '-H', '1',
-                    '-i', img_tiff, '-o', img_jp2] + img_compression_flags,
-                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            else:
-                raise Exception('Error: invalid jpeg2000 implementation?')
-
-            remove(img_tiff)
 
     if timing_data is not None:
         timing_data.append(('%s_jp2' % imgtype, time()-t))

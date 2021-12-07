@@ -2,7 +2,7 @@
 
 import sys
 from internetarchivepdf.recode import recode
-from internetarchivepdf.mrc import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
+from internetarchivepdf.jpeg2000 import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
     OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
         IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
