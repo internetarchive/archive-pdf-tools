@@ -47,7 +47,7 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
     Args:
 
     * image (PIL.Image): image to compress
-    * impl (str) JPEG2000 implementation
+    * impl (str): JPEG2000 implementation
     * flags list of str: encoding flags
     """
     if impl not in JPEG2000_IMPLS:
@@ -58,7 +58,10 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
         image.save(outpath, **kwargs)
     elif impl in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK,
             JPEG2000_IMPL_OPENJPEG):
-        fd, img_tiff = mkstemp(prefix=imgtype, suffix='.tif', dir=tmp_dir)
+        if impl in (JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_GROK):
+            fd, img_tiff = mkstemp(prefix=imgtype, suffix='.tif', dir=tmp_dir)
+        else:
+            fd, img_tiff = mkstemp(prefix=imgtype, suffix='.pnm', dir=tmp_dir)
         close(fd)
 
         image.save(img_tiff)
@@ -89,7 +92,11 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=Non
 
     if reduce_ is not None:
         # TODO: Check if reduce_ is an int? (not a float, etc)
-        reduce_ = int(reduce_)
+        reduce_ = int(reduce_ - 1)
+        if reduce == 1:
+            # Don't reduce when downsample = 1, it means we don't want to change
+            # it, and it also complicates the arg handling below
+            reduce = None
 
     img = None
     img_tiff = None
