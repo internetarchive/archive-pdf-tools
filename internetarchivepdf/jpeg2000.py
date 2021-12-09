@@ -93,10 +93,10 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=Non
     if reduce_ is not None:
         # TODO: Check if reduce_ is an int? (not a float, etc)
         reduce_ = int(reduce_ - 1)
-        if reduce == 1:
+        if reduce_ == 1:
             # Don't reduce when downsample = 1, it means we don't want to change
             # it, and it also complicates the arg handling below
-            reduce = None
+            reduce_ = None
 
     img = None
     img_tiff = None
