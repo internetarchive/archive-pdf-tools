@@ -126,7 +126,7 @@ Creating a PDF from a set of images is pretty straightforward::
     recode_pdf --from-imagestack 'sim_english-illustrated-magazine_1884-12_2_15_jp2/*' \
         --hocr-file sim_english-illustrated-magazine_1884-12_2_15_hocr.html \
         --dpi 400 --bg-downsample 3 \
-        -m 2 -t 10 --jbig2 \
+        -m 2 -t 10 --mask-compression jbig2 \
         -o /tmp/example.pdf
     [...]
     Processed 9 pages at 1.16 seconds/page
