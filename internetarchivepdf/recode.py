@@ -318,11 +318,11 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # write them to the right place in the PDF)
             t = time()
 
-            img = from_pdf[idx].getImageList()[0]
+            img = from_pdf[idx].get_images()[0]
             xref = img[0]
             maskxref = img[1]
 
-            image = from_pdf.extractImage(xref)
+            image = from_pdf.extract_image(xref)
             imgfd = io.BytesIO()
             imgfd.write(image["image"])
             image = Image.open(imgfd)
@@ -534,7 +534,7 @@ def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
         xref = img[0]
         maskxref = img[1]
         if mode == IMAGE_MODE_PASSTHROUGH:
-            image = from_pdf.extractImage(xref)
+            image = from_pdf.extract_image(xref)
             page.insert_image(page.rect, stream=image["image"], overlay=False)
         elif mode == IMAGE_MODE_PIXMAP:
             pixmap = fitz.Pixmap(from_pdf, xref)
