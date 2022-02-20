@@ -135,7 +135,7 @@ Creating a PDF from a set of images is pretty straightforward::
 
 
 Or, to scan a document, OCR it with Tesseract and save the result as a compressed PDF
-(JPEG2000 compression with OpenJPEG, background downsamples three times), with
+(JPEG2000 compression with OpenJPEG, background downsampled three times), with
 text layer::
 
     scanimage --resolution 300 --mode Color --format tiff | tee /tmp/scan.tiff | tesseract - - hocr > /tmp/scan.hocr ; recode_pdf -v -J openjpeg --bg-downsample 3 --from-imagestack /tmp/scan.tiff --hocr-file /tmp/scan.hocr -o /tmp/scan.pdf
