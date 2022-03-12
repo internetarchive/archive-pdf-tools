@@ -31,7 +31,7 @@ from datetime import datetime
 from xml.sax.saxutils import escape as xmlescape
 
 from internetarchivepdf.const import COMPRESSOR_JPEG, COMPRESSOR_JPEG2000, \
-        COMPRESSOR_JBIG2, PRODUCER
+        COMPRESSOR_JBIG2, PRODUCER, RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
 from internetarchivepdf.scandata import scandata_xml_get_page_numbers
 
