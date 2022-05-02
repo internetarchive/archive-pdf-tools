@@ -37,6 +37,7 @@ Components
 
    mrc.rst
    pagenumbers.rst
+   pdfhacks.rst
    pdfrenderer.rst
    recode.rst
    scandata.rst

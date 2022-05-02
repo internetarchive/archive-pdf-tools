@@ -108,6 +108,7 @@ def fast_insert_image(page, rect=None, width=0, height=0, stream=None,
     """Fast image insertion
 
     Args:
+
     * page: output fitz.Page
     * rect: rectangle to use
     * width: image width
