@@ -387,6 +387,25 @@ def write_basic_ua(to_pdf, language=None):
 
 
 def write_metadata(from_pdf, to_pdf, extra_metadata):
+    """
+    Write document and XMP metadata.
+
+    Args:
+
+    * from_pdf (fitz.Document or None): metadata to copy from input PDF, can be omitted
+    * to_pdf: (fitz.Document): PDF to write metadata to
+    * extra_metadata (dict): dictionary with extra metadata values
+
+    Allowed values for extra_metadata:
+
+    * 'url'
+    * 'title'
+    * 'author'
+    * 'creator'
+    * 'subject'
+    * 'creatortool'
+    * 'language' (can be a list)
+    """
     doc_md = from_pdf.metadata if from_pdf is not None else {}
 
     doc_md['producer'] = PRODUCER
