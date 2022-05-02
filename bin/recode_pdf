@@ -217,15 +217,23 @@ if __name__ == '__main__':
             if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
                 if args.bg_compression_flags is None:
                     args.bg_compression_flags = '-r 500'
+                else:
+                    args.bg_compression_flags = args.bg_compression_flags.lstrip()
 
                 if args.fg_compression_flags is None:
                     args.fg_compression_flags = '-r 750'
+                else:
+                    args.fg_compression_flags = args.fg_compression_flags.lstrip()
 
                 if args.hq_bg_compression_flags is None:
                     args.hq_bg_compression_flags = '-r 100'
+                else:
+                    args.hq_bg_compression_flags = args.hq_bg_compression_flags.lstrip()
 
                 if args.hq_fg_compression_flags is None:
                     args.hq_fg_compression_flags = '-r 300'
+                else:
+                    args.hq_fg_compression_flags = args.hq_fg_compression_flags.lstrip()
 
                 if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
                     sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
