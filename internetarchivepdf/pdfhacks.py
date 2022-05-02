@@ -436,7 +436,7 @@ def write_metadata(from_pdf, to_pdf, extra_metadata):
         xml_xref = from_pdf.xref_xml_metadata()
 
         # Just copy the existing XML, perform no validity checks
-        xml_bytes = from_pdf.xrefStream(xml_xref)
+        xml_bytes = from_pdf.xref_stream(xml_xref)
         to_pdf.set_xml_metadata(xml_bytes.decode('utf-8'))
     else:
         current_time = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
