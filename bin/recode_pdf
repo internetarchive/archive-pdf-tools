@@ -41,6 +41,8 @@ if __name__ == '__main__':
 
 
 
+    parser.add_argument('--version', action='version',
+                        version='internetarchivepdf {version}'.format(version=VERSION))
     input_args.add_argument('-P', '--from-pdf', type=str, default=None,
                             help='Input PDF (containing images) to recode')
     input_args.add_argument('-I', '--from-imagestack', type=str, default=None,
