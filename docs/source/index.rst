@@ -111,6 +111,7 @@ overlaying the mask component of the image, which is losslessly compressed
 In a PDF, this usually means the background image is inserted into a page,
 followed by the foreground image, which uses the mask as it's alpha layer.
 
+
 Usage
 ~~~~~
 
@@ -171,7 +172,6 @@ license for that file.
 .. [*] http://kba.cloud/hocr-spec/1.2/
 
 
-
 Library usage
 -------------
 
@@ -179,7 +179,7 @@ Library usage
 Examples
 ~~~~~~~~
 
-TODO. :-) 
+TODO. :-)
 
 
 Components
@@ -189,6 +189,7 @@ Components
    :maxdepth: 2
    :caption: Sections:
 
+   example.rst
    mrc.rst
    pagenumbers.rst
    pdfhacks.rst
