@@ -21,6 +21,24 @@ ctypedef np.uint8_t UINT8DTYPE_t
 @cython.warn.undeclared(True)
 def optimise_gray(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         np.ndarray[UINT8DTYPE_t, ndim=2] img, int width, int height, int n_size):
+    """
+    "Optimises" an input image for JPEG2000 compression, it does this by
+    radiating pixels in the mask to pixels not in the mask, downwards and to the
+    right. This (hopefully) allows for more optimal lossy compression of the
+    pixels in the mask.
+
+    Grayscale version.
+
+    Args:
+
+    * mask (numpy.ndarray[numpy.uint8, ndim=2]): input mask
+    * img: (numpy.ndarray[numpy.uint8, ndim=2): input image
+    * width (int): mask/img width
+    * height (int): mask/img height
+    * n_size: window size
+
+    Returns a new image (numpy.ndarray[numpy.uint8, ndim=2])
+    """
     cdef np.ndarray[UINT8DTYPE_t, ndim=2] new_img
     cdef int x, y
     cdef int val_count, val, ys, ye, xs, xe, xx, yy
@@ -64,6 +82,24 @@ def optimise_gray(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
 @cython.warn.undeclared(True)
 def optimise_rgb(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         np.ndarray[UINT8DTYPE_t, ndim=3] img, int width, int height, int n_size):
+    """
+    "Optimises" an input image for JPEG2000 compression, it does this by
+    radiating pixels in the mask to pixels not in the mask, downwards and to the
+    right. This (hopefully) allows for more optimal lossy compression of the
+    pixels in the mask.
+
+    RGB version.
+
+    Args:
+
+    * mask (numpy.ndarray[numpy.uint8, ndim=2]): input mask
+    * img: (numpy.ndarray[numpy.uint8, ndim=3): input image
+    * width (int): mask/img width
+    * height (int): mask/img height
+    * n_size: window size
+
+    Returns a new image (numpy.ndarray[numpy.uint8, ndim=3])
+    """
     cdef np.ndarray[UINT8DTYPE_t, ndim=3] new_img
     cdef int x, y
     cdef int val_count, ys, ye, xs, xe, xx, yy
@@ -116,6 +152,24 @@ def optimise_rgb(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
 @cython.warn.undeclared(True)
 def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         np.ndarray[UINT8DTYPE_t, ndim=2] img, int width, int height, int n_size):
+    """
+    "Optimises" an input image for JPEG2000 compression, it does this by
+    radiating pixels in the mask to pixels not in the mask, downwards and to the
+    right. This (hopefully) allows for more optimal lossy compression of the
+    pixels in the mask.
+
+    Fast and grayscale version.
+
+    Args:
+
+    * mask (numpy.ndarray[numpy.uint8, ndim=2]): input mask
+    * img: (numpy.ndarray[numpy.uint8, ndim=2): input image
+    * width (int): mask/img width
+    * height (int): mask/img height
+    * n_size: window size
+
+    Returns a new image (numpy.ndarray[numpy.uint8, ndim=2])
+    """
     cdef np.ndarray[UINT8DTYPE_t, ndim=2] new_img
     cdef int x, y
     cdef int val_count, val, ys, ye, xs, xe, xx, yy
@@ -225,6 +279,24 @@ def optimise_gray2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
 @cython.warn.undeclared(True)
 def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
         np.ndarray[UINT8DTYPE_t, ndim=3] img, int width, int height, int n_size):
+    """
+    "Optimises" an input image for JPEG2000 compression, it does this by
+    radiating pixels in the mask to pixels not in the mask, downwards and to the
+    right. This (hopefully) allows for more optimal lossy compression of the
+    pixels in the mask.
+
+    Fast and RGB version
+
+    Args:
+
+    * mask (numpy.ndarray[numpy.uint8, ndim=2]): input mask
+    * img: (numpy.ndarray[numpy.uint8, ndim=3): input image
+    * width (int): mask/img width
+    * height (int): mask/img height
+    * n_size: window size
+
+    Returns a new image (numpy.ndarray[numpy.uint8, ndim=3])
+    """
     cdef np.ndarray[UINT8DTYPE_t, ndim=3] new_img
     cdef int x, y
     cdef int val_count, ys, ye, xs, xe, xx, yy
@@ -363,6 +435,22 @@ def optimise_rgb2(np.ndarray[UINT8DTYPE_t, ndim=2] mask,
 @cython.warn.undeclared(True)
 def fast_mask_denoise(np.ndarray[UINT8DTYPE_t, ndim=2] mask, int width, int
         height, int mincnt, int n_size):
+    """
+    Fast in-place denoiser, focussed on speed rather than quality.
+
+    This function removes noise based on the amount of pixels in it's
+    neighbourhood
+
+    Args:
+
+    * mask (numpy.ndarray[numpy.uint8, ndim=2]): mask, modified in place
+    * width (int): width of mask
+    * height int): height of mask
+    * mincnt (int): min pixels in neighbourhood to not be counted as noise
+    * n_size (int): neighbourhood size in all x and y (-n_size, +n_size)
+
+    Returns the input mask, denoised.
+    """
     cdef np.ndarray[UINT8DTYPE_t, ndim=2] new_img
     cdef int x, y
     cdef int cnt = 0;
