@@ -56,6 +56,17 @@ def mean_estimate_sigma(arr):
 
 
 def threshold_image(img, dpi, k=0.34):
+    """
+    Perform Sauvola binarisation on the given image
+
+    Args:
+
+    * img (np.ndarray): input image array
+    * dpi (int): dpi for Sauvola, used to calculate window size if not None
+    * k (float): k parameter, defaults to 0.34
+
+    Returns binarised numpy.ndarray
+    """
     window_size = 51
 
     if dpi is not None:
@@ -77,6 +88,15 @@ def threshold_image(img, dpi, k=0.34):
 
 
 def denoise_bregman(binary_img):
+    """
+    Denoise a binary numpy array using Bregman total variation denoising
+
+    Args:
+
+    * binary_img (np.array): input array
+
+    Returns te denoised array
+    """
     thresf = np.array(binary_img, dtype=np.float32)
     #denoise = denoise_tv_bregman(thresf, weight=0.25)
     denoise = denoise_tv_bregman(thresf, weight=1.)
