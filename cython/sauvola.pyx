@@ -27,6 +27,30 @@ ctypedef np.uint8_t UINT8DTYPE_t
 # the window
 @cython.warn.undeclared(True)
 def binarise_sauvola(np.ndarray[UINT8DTYPE_t, ndim=1] in_arr, np.ndarray[UINT8DTYPE_t, ndim=1] out_arr, int width, int height, int window_width, int window_height, double k, double R):
+    """
+    Perform fast Sauvola binarisation on the given input array/image.
+
+    Args:
+
+    * in_arr (numpy.ndarray[numpy.uint8, ndim=1]): input array, flattened
+    * our_arr (numpy.ndarray[numpy.uint8, ndim=1]): output array, flattened, must be allocated already
+    * width (int): width of mask
+    * height int): height of mask
+    * window_width (int): Sauvola window width
+    * window_height(int): Sauvola window height
+    * k (double): k parameter
+    * R (double): R parameter
+
+    Example usage:
+
+    >>> h, w = img.shape
+    >>> out_img = np.ndarray(img.shape, dtype=np.bool)
+    >>> out_img = np.reshape(out_img, w*h)
+    >>> in_img = np.reshape(img, w*h)
+    >>> binarise_sauvola(in_img, out_img, w, h, window_size, window_size, k, R)
+    >>> out_img = np.reshape(out_img, (h, w))
+    >>> out_img = np.invert(out_img)
+    """
     cdef int i, l, r, o, u, j, dr0, dr1, dr2, dr3
     cdef int index_top, index_bottom, win_top, win_bottom, index, bottom_max
     cdef int top, bottom, win_height, sum_, count, win_right, win_left, imax
