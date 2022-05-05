@@ -585,8 +585,6 @@ def encode_mrc_background(np_bg, bg_compression_flags, mask_pgm, tmp_dir=None,
 
     Returns the filepath to the JPEG2000 background image
     """
-    if mask_pgm:
-        mask_pgm += '.inverted.pgm'
     return encode_mrc_img(np_bg, bg_compression_flags, 'bg', mask_pgm=mask_pgm,
             tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
@@ -611,6 +609,8 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, mask_pgm, tmp_dir=None,
 
     Returns the filepath to the JPEG2000 foreground image
     """
+    if mask_pgm:
+        mask_pgm += '.inverted.pgm'
     return encode_mrc_img(np_fg, fg_compression_flags, 'fg', mask_pgm=mask_pgm,
             tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
