@@ -626,6 +626,7 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
             timing_data=timing_data)
 
     mask_img_pgm = None
+    imask_img_pgm = None
 
     if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
         # we need two masks, one for background, one for the foreground
@@ -664,7 +665,9 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
     except StopIteration:
         pass
 
-    remove(mask_img_pgm)
+    if mask_img_pgm:
+        remove(mask_img_pgm)
+        remove(imask_img_pgm)
 
     if jbig2:
         remove(mask_img_png)
