@@ -42,7 +42,8 @@ fitz.TOOLS.set_icc(True) # For good measure, not required
 
 from internetarchivepdf.jpeg2000 import encode_jpeg2000
 from internetarchivepdf.const import (RECODE_RUNTIME_WARNING_TOO_SMALL_TO_DOWNSAMPLE, COMPRESSOR_JPEG,
-        COMPRESSOR_JPEG2000, DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN)
+        COMPRESSOR_JPEG2000, DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN,
+        JPEG2000_IMPL_KAKADU)
 
 
 """
@@ -511,7 +512,8 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
         return None, mask_img_png
 
 
-def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
+def encode_mrc_img(np_img, img_compression_flags, imgtype=None, mask_pgm=None,
+        tmp_dir=None,
         jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
     Encode image as JPEG2000 or JPEG, with the provided compression settings
@@ -521,6 +523,7 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
 
     * np_img (numpy.array): Image array
     * img_compression_flags (str): Compression flags
+    * mask_pgm (str or None): Path to the PGM encoded mask
     * imgtype (str: 'bg' or 'fg'
     * tmp_dir (str): path the temporary directory to write images to
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
@@ -555,7 +558,7 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
         tmpfd.close()
     else:
         encode_jpeg2000(img, img_jp2, jpeg2000_implementation,
-                        img_compression_flags, imgtype=imgtype)
+                        img_compression_flags, mask_pgm, imgtype=imgtype)
 
 
     if timing_data is not None:
@@ -564,7 +567,7 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
     return img_jp2
 
 
-def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
+def encode_mrc_background(np_bg, bg_compression_flags, mask_pgm, tmp_dir=None,
         jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
     Encode background image as JPEG2000, with the provided compression settings
@@ -574,6 +577,7 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
 
     * np_bg (numpy.array): Background image array
     * bg_compression_flags (str): Compression flags
+    * mask_pgm (str or None): Path to the PGM encoded mask
     * tmp_dir (str): path the temporary directory to write images to
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
     * mrc_image_format (str): What image format to produce
@@ -581,12 +585,15 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
 
     Returns the filepath to the JPEG2000 background image
     """
-    return encode_mrc_img(np_bg, bg_compression_flags, 'bg', tmp_dir=tmp_dir,
+    if mask_pgm:
+        mask_pgm += '.inverted.pgm'
+    return encode_mrc_img(np_bg, bg_compression_flags, 'bg', mask_pgm=mask_pgm,
+            tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
             mrc_image_format=mrc_image_format, timing_data=timing_data)
 
 
-def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
+def encode_mrc_foreground(np_fg, fg_compression_flags, mask_pgm, tmp_dir=None,
         jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
     """
     Encode foreground image as JPEG2000, with the provided compression settings
@@ -596,6 +603,7 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
 
     * np_bg (numpy.array): Foreground image array
     * fg_compression_flags (str): Compression flags
+    * mask_pgm (str or None): Path to the PGM encoded mask
     * tmp_dir (str): path the temporary directory to write images to
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
     * mrc_image_format (str): What image format to produce
@@ -603,7 +611,8 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
 
     Returns the filepath to the JPEG2000 foreground image
     """
-    return encode_mrc_img(np_fg, fg_compression_flags, 'fg', tmp_dir=tmp_dir,
+    return encode_mrc_img(np_fg, fg_compression_flags, 'fg', mask_pgm=mask_pgm,
+            tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
             mrc_image_format=mrc_image_format, timing_data=timing_data)
 
@@ -616,8 +625,24 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
             tmp_dir=tmp_dir, jbig2=jbig2, embedded_jbig2=embedded_jbig2,
             timing_data=timing_data)
 
+    mask_img_pgm = None
+
+    if jpeg2000_implementation == JPEG2000_IMPL_KAKADU:
+        # we need two masks, one for background, one for the foreground
+        fd, mask_img_pgm = mkstemp(prefix='mask', suffix='.pgm', dir=tmp_dir)
+        close(fd)
+        i = Image.open(mask_img_png)
+        i = i.convert('L')
+        i.save(mask_img_pgm)
+
+        imask_img_pgm = mask_img_pgm + '.inverted.pgm'
+        i = ImageOps.invert(i)
+        i.save(imask_img_pgm)
+        i.close()
+
     np_fg = next(mrc_gen)
-    fg_img_jp2 = encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=tmp_dir,
+    fg_img_jp2 = encode_mrc_foreground(np_fg, fg_compression_flags, mask_img_pgm,
+                                       tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
                                        mrc_image_format=mrc_image_format,
                                        timing_data=timing_data)
@@ -625,7 +650,8 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
     np_fg = None
 
     np_bg = next(mrc_gen)
-    bg_img_jp2 = encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=tmp_dir,
+    bg_img_jp2 = encode_mrc_background(np_bg, bg_compression_flags, mask_img_pgm,
+                                       tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
                                        mrc_image_format=mrc_image_format,
                                        timing_data=timing_data)
@@ -637,6 +663,8 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
         _ = next(mrc_gen)
     except StopIteration:
         pass
+
+    remove(mask_img_pgm)
 
     if jbig2:
         remove(mask_img_png)

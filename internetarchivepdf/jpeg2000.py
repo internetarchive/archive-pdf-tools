@@ -41,7 +41,7 @@ OPJ_DECOMPRESS = 'opj_decompress'
 GRK_COMPRESS = 'grk_compress'
 GRK_DECOMPRESS = 'grk_decompress'
 
-def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
+def encode_jpeg2000(image, outpath, impl, flags, mask_pgm, tmp_dir=None, imgtype=None):
     """ Encode PIL image to JPEG2000 file
 
     Args:
@@ -49,6 +49,7 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
     * image (PIL.Image): image to compress
     * impl (str): JPEG2000 implementation
     * flags list of str: encoding flags
+    * mask_pgm (str or None): Path to pgm mask
     """
     if impl not in JPEG2000_IMPLS:
         raise Exception('Error: invalid jpeg2000 implementation?')
@@ -68,8 +69,13 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
 
         args = ['-i', img_tiff, '-o', outpath]
         args = add_impl_args(args, impl, encode=True)
-
         args += flags
+
+        if 'Creversible=no' in flags:
+            if mask_pgm is not None:
+                args += ['-roi', '%s,0.5' % mask_pgm]
+
+        print(args)
         check_call(args, stdout=DEVNULL, stderr=DEVNULL)
 
         remove(img_tiff)
