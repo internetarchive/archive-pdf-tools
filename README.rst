@@ -66,6 +66,16 @@ For JBIG2 compression:
 * `jbig2enc <https://github.com/agl/jbig2enc>`_ for JBIG2 compression (and PyMuPDF 1.19.0 or higher)
 
 
+Installation
+============
+
+Check out the master branch or a tagged release and use `pip` to install:
+
+```bash
+git clone https://github.com/internetarchive/archive-pdf-tools.git
+cd archive-pdf-tools
+pip3 install .
+```
 
 Not well tested features
 ========================
