@@ -69,7 +69,7 @@ For JBIG2 compression:
 Installation
 ============
 
-Check out the master branch or a tagged release and use `pip` to install:
+Check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install:
 
 ```bash
 git clone https://github.com/internetarchive/archive-pdf-tools.git
