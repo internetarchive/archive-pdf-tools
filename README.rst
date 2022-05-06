@@ -69,12 +69,29 @@ For JBIG2 compression:
 Installation
 ============
 
+First install dependencies. For example, in Ubuntu:
+
+```bash
+sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev
+git clone https://github.com/agl/jbig2enc
+cd jbig2enc
+./autogen.sh
+./configure && make
+sudo make install
+```
+
 Check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install:
 
 ```bash
 git clone https://github.com/internetarchive/archive-pdf-tools.git
 cd archive-pdf-tools
 pip3 install .
+```
+
+See if archive-pdf-tools are installed correctly for your user:
+
+```bash
+recode_pdf --version
 ```
 
 Not well tested features
