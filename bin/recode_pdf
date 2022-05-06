@@ -106,15 +106,15 @@ if __name__ == '__main__':
                            'compression. '
                            'Default for kakadu is \'-slope 44250\','
                            'default for grok/openjpeg is \'-r 500\'. '
-                           'Pass with quoted and with a space at the start:'
-                           '\' --flag value\'')
+                           'Pass quoted and with = sign, like so:'
+                            '--bg-compression-flags=\'--some-flag foo\'')
     comp_args.add_argument('--fg-compression-flags', default=None, type=str,
                            help='Foreground compression flags for JPEG2000 '
                            'compression. '
                            'Default for kakadu is \'-slope 44500\','
                            'default for grok/openjpeg is \'-r 750\'. '
-                           'Pass with quoted and with a space at the start:'
-                           '\' --flag value\'')
+                           'Pass quoted and with = sign, like so:'
+                            '--fg-compression-flags=\'--some-flag foo\'')
     comp_args.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
                            type=str,
                            choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
@@ -136,15 +136,15 @@ if __name__ == '__main__':
                            'JPEG2000 compression. '
                            'Default for kakadu is \'-slope 43500\','
                            'default for grok/openjpeg is \'-r 100\'.'
-                           'Pass with quoted and with a space at the start:'
-                           '\' --flag value\'')
+                           'Pass quoted and with = sign, like so:'
+                            '--hq-bg-compression-flags=\'--some-flag foo\'')
     comp_args.add_argument('--hq-fg-compression-flags', type=str,
                            help='High quality foreground compression flags for '
                            'JPEG2000 compression. '
                            'Default for kakadu is \'-slope 44500\','
                            'default for grok/openjpeg is \'-r 300\'.'
-                           'Pass with quoted and with a space at the start:'
-                           '\' --flag value\'')
+                           'Pass quoted and with = sign, like so:'
+                            '--hq-fg-compression-flags=\'--some-flag foo\'')
 
     image_args.add_argument('-D', '--dpi', type=int, default=None,
                             help='DPI of input images, supply this to get '
@@ -217,23 +217,15 @@ if __name__ == '__main__':
             if args.jpeg2000_implementation == JPEG2000_IMPL_OPENJPEG:
                 if args.bg_compression_flags is None:
                     args.bg_compression_flags = '-r 500'
-                else:
-                    args.bg_compression_flags = args.bg_compression_flags.lstrip()
 
                 if args.fg_compression_flags is None:
                     args.fg_compression_flags = '-r 750'
-                else:
-                    args.fg_compression_flags = args.fg_compression_flags.lstrip()
 
                 if args.hq_bg_compression_flags is None:
                     args.hq_bg_compression_flags = '-r 100'
-                else:
-                    args.hq_bg_compression_flags = args.hq_bg_compression_flags.lstrip()
 
                 if args.hq_fg_compression_flags is None:
                     args.hq_fg_compression_flags = '-r 300'
-                else:
-                    args.hq_fg_compression_flags = args.hq_fg_compression_flags.lstrip()
 
                 if not (which(OPJ_COMPRESS) and which(OPJ_DECOMPRESS)):
                     sys.stderr.write('***** Error: OpenJPEG is requested but opj_compress and opj_decompress are not found in $PATH\n')
@@ -242,23 +234,15 @@ if __name__ == '__main__':
             if args.jpeg2000_implementation == JPEG2000_IMPL_GROK:
                 if args.bg_compression_flags is None:
                     args.bg_compression_flags = '-r 500'
-                else:
-                    args.bg_compression_flags = args.bg_compression_flags.lstrip()
 
                 if args.fg_compression_flags is None:
                     args.fg_compression_flags = '-r 750'
-                else:
-                    args.fg_compression_flags = args.fg_compression_flags.lstrip()
 
                 if args.hq_bg_compression_flags is None:
                     args.hq_bg_compression_flags = '-r 100'
-                else:
-                    args.hq_bg_compression_flags = args.hq_bg_compression_flags.lstrip()
 
                 if args.hq_fg_compression_flags is None:
                     args.hq_fg_compression_flags = '-r 300'
-                else:
-                    args.hq_fg_compression_flags = args.hq_fg_compression_flags.lstrip()
 
                 if not (which(GRK_COMPRESS) and which(GRK_DECOMPRESS)):
                     sys.stderr.write('***** Error: Grok is requested but opj_compress and opj_decompress are not found in $PATH\n')
