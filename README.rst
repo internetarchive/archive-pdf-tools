@@ -71,28 +71,38 @@ Installation
 
 First install dependencies. For example, in Ubuntu:  
 
+```
+sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev python3-pip
+git clone https://github.com/agl/jbig2enc
+cd jbig2enc
+./autogen.sh
+./configure && make
+sudo make install
+```
 
-    sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev
-    git clone https://github.com/agl/jbig2enc
-    cd jbig2enc
-    ./autogen.sh
-    ./configure && make
-    sudo make install
+Because `archive-pdf-tools` is on the [Python Package Index](https://pypi.org/project/archive-pdf-tools/) (PyPI), you can use `pip` (the Python 3 version is often called `pip3`) to install the latest version:
 
+```
+# Latest version
+pip3 install archive-pdf-tools
 
-Check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install:
+# Specific version
+pip3 install archive-pdf-tools==1.4.14
+```
 
+Alternatively, if you want a specific commit or unreleased version, check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install:
 
-    git clone https://github.com/internetarchive/archive-pdf-tools.git
-    cd archive-pdf-tools
-    pip3 install .
+```
+git clone https://github.com/internetarchive/archive-pdf-tools.git
+cd archive-pdf-tools
+pip3 install .
+```
 
+To see if `archive-pdf-tools` is installed correctly for your user, run:
 
-See if archive-pdf-tools are installed correctly for your user:
-
-
-    recode_pdf --version
-
+```
+recode_pdf --version
+```
 
 
 Not well tested features
