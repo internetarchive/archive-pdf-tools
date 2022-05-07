@@ -69,46 +69,46 @@ For JBIG2 compression:
 Installation
 ============
 
-First install dependencies. For example, in Ubuntu:  
+First install dependencies. For example, in Ubuntu::
 
-```
-sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev python3-pip
-git clone https://github.com/agl/jbig2enc
-cd jbig2enc
-./autogen.sh
-./configure && make
-sudo make install
-```
 
-Because `archive-pdf-tools` is on the [Python Package Index](https://pypi.org/project/archive-pdf-tools/) (PyPI), you can use `pip` (the Python 3 version is often called `pip3`) to install the latest version:
+    sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev python3-pip
+    git clone https://github.com/agl/jbig2enc
+    cd jbig2enc
+    ./autogen.sh
+    ./configure && make
+    sudo make install
 
-```
-# Latest version
-pip3 install archive-pdf-tools
 
-# Specific version
-pip3 install archive-pdf-tools==1.4.14
-```
+Because `archive-pdf-tools` is on the [Python Package Index](https://pypi.org/project/archive-pdf-tools/) (PyPI), you can use `pip` (the Python 3 version is often called `pip3`) to install the latest version::
 
-Alternatively, if you want a specific commit or unreleased version, check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install:
 
-```
-git clone https://github.com/internetarchive/archive-pdf-tools.git
-cd archive-pdf-tools
-pip3 install .
-```
+    # Latest version
+    pip3 install archive-pdf-tools
+    
+    # Specific version
+    pip3 install archive-pdf-tools==1.4.14
 
-Finally, if you've downloaded a wheel to test a specific commit, you can also install it using `pip`:
 
-```
-pip3 install --force-reinstall -U --no-deps ./archive_pdf_tools-${version}.whl
-```
+Alternatively, if you want a specific commit or unreleased version, check out the master branch or a [tagged release](https://github.com/internetarchive/archive-pdf-tools/tags) and use `pip` to install::
 
-To see if `archive-pdf-tools` is installed correctly for your user, run:
 
-```
-recode_pdf --version
-```
+    git clone https://github.com/internetarchive/archive-pdf-tools.git
+    cd archive-pdf-tools
+    pip3 install .
+
+
+Finally, if you've downloaded a wheel to test a specific commit, you can also install it using `pip`::
+
+
+    pip3 install --force-reinstall -U --no-deps ./archive_pdf_tools-${version}.whl
+
+
+To see if `archive-pdf-tools` is installed correctly for your user, run::
+
+
+    recode_pdf --version
+
 
 
 Not well tested features
