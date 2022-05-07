@@ -98,6 +98,12 @@ cd archive-pdf-tools
 pip3 install .
 ```
 
+Finally, if you've downloaded a wheel to test a specific commit, you can also install it using `pip`:
+
+```
+pip3 install --force-reinstall -U --no-deps ./archive_pdf_tools-${version}.whl
+```
+
 To see if `archive-pdf-tools` is installed correctly for your user, run:
 
 ```
