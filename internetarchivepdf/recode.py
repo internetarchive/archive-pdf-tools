@@ -346,6 +346,12 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                 image = Image.open(imgfile)
                 image.load()
 
+            if image.mode in ('RGBA', 'LA'):
+                if image.mode == 'RGBA':
+                    image = image.convert('RGB')
+                elif image.mode == 'LA':
+                    image = image.convert('L')
+
             if timing_data is not None:
                 timing_data.append(('image_load', time()-t))
 
