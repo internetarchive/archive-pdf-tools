@@ -67,9 +67,14 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
         image.save(img_tiff)
 
         args = ['-i', img_tiff, '-o', outpath]
+        args += flags
+
+        # Specify threads at the end, because some older versions of OpenJPEG do
+        # not support threads, but if we specify the flags at the end, it will
+        # just ignore the threads and not the variables passed before that (see
+        # https://github.com/internetarchive/archive-pdf-tools/issues/41)
         args = add_impl_args(args, impl, encode=True)
 
-        args += flags
         check_call(args, stdout=DEVNULL, stderr=DEVNULL)
 
         remove(img_tiff)
