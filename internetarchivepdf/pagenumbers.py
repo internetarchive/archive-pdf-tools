@@ -206,7 +206,14 @@ def parse_series(series):
                      except ValueError:
                          val_type = INVALID
                          val_value = None
+            elif val_type in (ALPHA_LOWER, ALPHA_UPPER) and next_val_type not in (ROMAN_UPPER, ROMAN_LOWER):
+                # We can have a case where an invalid roman numeral ('XXXVIIII')
+                # is followed by a arabic numeral (39), which will hit this
+                # case, let's just treat it invalid
+                val_type = INVALID
+                val_value = None
             else:
+                # This code should be unreachable now
                 raise ValueError('Alpha page numbers are not supported at the '
                                  ' moment due to ambiguity in the spec.')
 
