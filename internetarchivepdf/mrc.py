@@ -95,7 +95,7 @@ def denoise_bregman(binary_img):
 
     * binary_img (np.array): input array
 
-    Returns te denoised array
+    Returns the denoised array
     """
     thresf = np.array(binary_img, dtype=np.float32)
     #denoise = denoise_tv_bregman(thresf, weight=0.25)
