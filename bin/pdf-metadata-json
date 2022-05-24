@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+import sys
+
+import fitz
+
+import io
+from PIL import Image
+
+
+ANALYSIS_VERSION = '0.0.1'
+
+
+# TODO:
+#
+#
+# * normalise the filter values to something more sane, maybe, instead of pdf
+#   specific names?
+
+
+
+
+#def get_pil_img(pdf, xref):
+#    image = pdf.extract_image(xref)
+#    imgfd = io.BytesIO()
+#    imgfd.write(image["image"])
+#    image = Image.open(imgfd)
+#    image.load()
+#    imgfd.close()
+#
+#    return image
+
+## TODO: this lacks mask info
+#for page_image in page.get_image_info():
+#    print(page_image)
+#    img_info = {}
+
+#    img_info['bbox'] = page_image['bbox']
+#    img_info['transform'] = page_image['transform']
+#    img_info['colorspace'] = page_image['cs-name']
+#    img_info['width'] = page_image['width']
+#    img_info['height'] = page_image['height']
+#    img_info['depth'] = page_image['bpc']
+
+#    image_data.append(img_info)
+
+
+def get_scale_from_image_data(image_data):
+    # TODO: what else can we take into account here?
+
+    # TODO: What do we do when we have no images? Render at 300dpi?
+
+    if image_data:
+        scale_x = 1.
+        scale_y = 1.
+        for info in image_data:
+            bbox = info['bbox']
+            width = info['width']
+            height = info['height']
+
+            bbox_w = abs(bbox[2] - bbox[0])
+            bbox_h = abs(bbox[3] - bbox[1])
+
+            if bbox_w < width:
+                scale_x = width / bbox_w
+
+            if bbox_h < height:
+                scale_y = height / bbox_h
+
+        scale = max(scale_x, scale_y)
+    else:
+        scale = 300. / 72.
+
+    # TODO: Do we want some min scale? (if it's less than x, set to x)
+
+    return scale
+
+
+def get_recommended_image_format_from_page_data(page_data):
+    rgb_seen = False
+    grayscale_seen = False
+    bitonal_seen = False
+
+
+    for page in page_data:
+        if 'image_data' in page:
+            for image in page['image_data']:
+                is_grayscale_cs = image['colorspace'] in ('DeviceGray', 'ICCBased(Gray,Generic Gray Profile)')
+
+
+                if image['colorspace'] == 'DeviceRGB':
+                    rgb_seen = True
+                elif is_grayscale_cs and image['depth'] == 8:
+                    grayscale_seen = True
+                elif is_grayscale_cs and image['depth'] == 1:
+                    bitonal_seen = True
+                else:
+                    raise ValueError('Cannot recommend image format, unknown image: %s' % image)
+
+    if rgb_seen:
+        return 'RGB'
+    if grayscale_seen:
+        return 'Grayscale'
+    if bitonal_seen:
+        return 'Bitonal'
+
+    raise ValueError('Cannot recommend image format')
+
+
+def analyse(filename):
+    res = {}
+
+    pymupdf_version, mupdf_version, date = fitz.version
+
+    res['version'] = {
+            'analysis': ANALYSIS_VERSION,
+            'pymupdf': pymupdf_version,
+            'mupdf': mupdf_version,
+    }
+
+    pdf = fitz.open(filename)
+    res['page_count'] = pdf.page_count
+
+    # TODO:
+    # * pdf/a or not
+    # * asserted to be rendered as colour or on grayscale
+    # * for pdf, but also per page: estimated dpi (does this depend on the image
+    #   bounding box?)
+    # * toc info?
+
+    res['page_data'] = []
+
+    for ppidx, page in enumerate(pdf):
+        #print(ppidx, file=sys.stderr)
+        page_data = {}
+
+        page_data['page_number'] = page.number
+        page_data['page_rotation'] = page.rotation
+        page_data['page_language'] = page.language
+
+        # TODO: clarify if this is points (presumably)
+        page_data['page_rect'] = list(page.rect)
+        # page_data['page_rotation_matrix'] = page.rotation_matrix
+
+        # TODO
+        for link in page.get_links():
+            pass
+
+        # We'd like to get rid of this call later, as we only use it to get
+        # transform/bboxes, and it's slow. It reads the page contents for image
+        # operations, but also actually decompresses the images, which is
+        # something we'd rather not do.
+        iminfo_all = page.get_image_info(xrefs=True)
+
+        image_data = []
+
+        for page_image in page.get_images():
+            img_info = {}
+
+            img_id, mask_id, w, h, bpc, colortodo, todo, label, encoding = page_image
+            img_info['width'] = w
+            img_info['height'] = h
+            img_info['depth'] = bpc
+            img_info['label'] = label
+
+            iminfo = None
+            for ii in iminfo_all:
+                if ii['xref'] == img_id:
+                    iminfo = ii
+                    break
+
+            if iminfo is None:
+                # This can occur since page.get_images can return more images
+                # than are actually on the page, whereas page.get_image_info
+                # does not, but we need this info as well for the masks
+                print('Image not actually present on the page. Skipping this image.', file=sys.stderr)
+                continue
+
+            #print(iminfo, file=sys.stderr)
+
+            # TODO: also look at iminfo['cs-name'] and iminfo['colorspace'],
+            # iminfo['size'], although we maybe want to skip iminfo if we can
+            # since it's so slow
+
+            ## This is *slow* as it seems to decode the image
+            img_info['bbox'] = iminfo['bbox']
+            img_info['transform'] = iminfo['transform']
+            img_info['xres'] = iminfo['xres']
+            img_info['yres'] = iminfo['yres']
+
+            # Supported xref keys ('Filter', 'Type', 'Subtype', 'BitsPerComponent', 'Width', 'Height', 'ColorSpace', 'Length')
+            typ, img_info['format'] = pdf.xref_get_key(img_id, 'Filter')
+            if typ != 'name':
+                raise ValueError('Invalid type for Filter: %s' % typ)
+
+            img_info['colorspace'] = iminfo['cs-name']
+            #typ, img_info['colorspace'] = pdf.xref_get_key(img_id, 'ColorSpace')
+            #if typ != 'name':
+            #    raise ValueError('Invalid type for ColorSpace: %s' % typ)
+
+            # can also be typ xref?
+            #typ, img_info['length'] = pdf.xref_get_key(img_id, 'Length')
+            #if typ != 'int':
+            #    raise ValueError('Invalid type for Length: %s' % typ)
+
+
+            img_info['mask'] = None
+
+            if mask_id > 0:
+                mask_info = {}
+
+                typ, mask_info['format'] = pdf.xref_get_key(mask_id, 'Filter')
+                #if typ != 'name':
+                #    raise ValueError('Invalid type for Filter: %s' % typ)
+
+                # XXX: What to do with masks?
+                ## XXX: Make this something sensible
+                #typ, mask_info['colorspace'] = pdf.xref_get_key(mask_id, 'ColorSpace')
+                # Is sometimes missing, which I think makes sense, since this is
+                # only ever 1 bit
+                #if typ != 'name':
+                #    raise ValueError('Invalid type for ColorSpace: %s' % typ)
+
+                # can also be typ xref?
+                #typ, mask_info['length'] = pdf.xref_get_key(img_id, 'Length')
+                #if typ != 'int':
+                #    raise ValueError('Invalid type for Length: %s' % typ)
+
+                # TODO: do we assume mask height/width is same as normal img?
+                typ, mask_info['width'] = pdf.xref_get_key(mask_id, 'Width')
+                if typ != 'int':
+                    raise ValueError('Invalid type for Width: %s' % typ)
+                typ, mask_info['height'] = pdf.xref_get_key(mask_id, 'Height')
+                if typ != 'int':
+                    raise ValueError('Invalid type for Height: %s' % typ)
+                typ, mask_info['depth'] = pdf.xref_get_key(mask_id, 'BitsPerComponent')
+                # This is sometimes missing, which makes sense, since it should
+                # only ever be 1 bit?
+                #if typ != 'int':
+                #    raise ValueError('Invalid type for BitsPerComponent: %s' % typ)
+
+                img_info['mask'] = mask_info
+
+
+            ## TODO: do we merge these, or how does this work?
+
+            # use img.format, or perhaps rely on encoding from pymupdf?
+            # pil might not be able to load say ccitt or jbig2, but we already
+            # know a lot about those, but for jpeg2000 images or others we can
+            # extract some more info, if we need it
+
+            image_data.append(img_info)
+
+        scale = get_scale_from_image_data(image_data)
+
+        page_data['estimated_scale'] = scale
+        page_data['estimated_ppi'] = int(72 * scale)
+        page_data['estimated_default_render_res'] = list(map(lambda x:x*scale, page_data['page_rect']))
+
+        page_data['image_data'] = image_data
+
+        res['page_data'].append(page_data)
+
+    res['imagestack_image_format'] = get_recommended_image_format_from_page_data(res['page_data'])
+
+    # TODO:
+    # - permissions
+    # - password required?
+    # - language(?)
+    # - is_repaired?
+
+    #res[
+
+    return res
+
+
+def pick_pdf_format(pdf_data):
+    pass
+
+
+if __name__ == '__main__':
+    r = analyse(sys.argv[1])
+    from json import dump
+    dump(r, sys.stdout, indent=' ' * 4)
+    #from pprint import pprint
+    #pprint(r)
