@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import json
+import io
+
+import zipfile
+import tempfile
+
+import fitz
+
+from PIL import Image
+
+from internetarchivepdf.jpeg2000 import encode_jpeg2000
+from internetarchivepdf.const import JPEG2000_IMPL_KAKADU
+
+def process(in_pdf, in_json, identifier, out_zip):
+    doc = fitz.open(in_pdf)
+    json_data = json.load(open(in_json))
+
+    # Determine if we go for tif or jp2 here
+    tif_ok = True
+    for page_metadata in json_data['page_data']:
+        image_depths = [x['depth'] for x in page_metadata['image_data']]
+        image_depths = list(set(image_depths))
+
+        if len(image_depths) == 1 and image_depths[0] == 1:
+            pass
+        else:
+            tif_ok = False
+
+    zipfd = zipfile.ZipFile(out_zip, 'w', allowZip64=True)
+
+    fd, tmpname = tempfile.mkstemp(suffix='.jp2')
+    os.close(fd)
+
+    for idx, (pdf_page, page_metadata) in enumerate(zip(doc, json_data['page_data'])):
+        print('Processing page: %d' % idx)
+        # TODO: write estimated dpi, etc
+
+        pdf_scale = page_metadata['estimated_scale']
+
+        pix = pdf_page.get_pixmap(matrix=fitz.Matrix(pdf_scale, pdf_scale))
+
+        bio = io.BytesIO()
+        if tif_ok:
+            # if only 1 bit, let's do tif
+            bio.write(pix.pil_tobytes(format='png', compress_level=0, compress=0))
+            i = Image.open(bio).convert('1')
+
+            bio.close()
+            bio = io.BytesIO()
+            # Let's just use compression that the pdf standard also knows
+            i.save(bio, format='tiff', compression='tiff_ccitt')
+            bio.seek(0)
+
+            zipfd.writestr('%s_tif/%s_%.4d.tif' % (identifier, identifier, idx), bio.read())
+        else:
+            bio.write(pix.pil_tobytes(format='png', compress=0,
+                compress_level=0))
+            bio.seek(0)
+
+            img = Image.open(bio)
+            encode_jpeg2000(img, tmpname, JPEG2000_IMPL_KAKADU, flags=['-slope', '42800'])
+            bio = open(tmpname, 'rb')
+
+            zipfd.writestr('%s_jp2/%s_%.4d.jp2' % (identifier, identifier, idx), bio.read())
+
+    os.remove(tmpname)
+
+    zipfd.close()
+
+if __name__ == '__main__':
+    in_pdf, in_json, identifier, out_zip = sys.argv[1:5]
+    process(in_pdf, in_json, identifier, out_zip)
