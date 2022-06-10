@@ -18,7 +18,8 @@ if __name__ == '__main__':
         version = version,
         download_url='https://github.com/internetarchive/archive-pdf-tools/archive/%s.tar.gz' % version,
         include_dirs = [numpy.get_include()],
-        scripts=['bin/recode_pdf', 'bin/epub-to-pdf'],
+        scripts=['bin/recode_pdf', 'bin/pdf-metadata-json',
+                 'bin/compress-pdf-images'],
         ext_modules = cythonize(
             ['cython/sauvola.pyx', 'cython/optimiser.pyx'],
             compiler_directives = {'language_level' : '3'},
