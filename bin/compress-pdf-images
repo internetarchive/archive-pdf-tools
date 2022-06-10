@@ -70,14 +70,14 @@ def compress_page_images(doc, page, hocr_word_data=[]):
                 )
 
 
-        fg_slope = 44500
-        bg_slope = 44250
+        #fg_slope = 44500
+        #bg_slope = 44250
         # with pillow
-        #mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
-        #        jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
-        #        bg_compression_flags=['quality_mode:"rates";quality_layers:[500]'],
-        #        fg_compression_flags=['quality_mode:"rates";quality_layers:[750]'],
-        #        )
+        mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
+                jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
+                bg_compression_flags=['quality_mode:"rates";quality_layers:[250]'],
+                fg_compression_flags=['quality_mode:"rates";quality_layers:[300]'],
+                )
 
         # with jpegoptim
         #mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
@@ -86,11 +86,11 @@ def compress_page_images(doc, page, hocr_word_data=[]):
         #        fg_compression_flags=['-S20'],
         #        )
 
-        mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
-                jpeg2000_implementation=JPEG2000_IMPL_KAKADU,
-                bg_compression_flags=['-slope', str(bg_slope)],
-                fg_compression_flags=['-slope', str(fg_slope)],
-                )
+        #mask_f, bg_f, bg_s, fg_f, fg_s = encode_mrc_images(mrc_gen,
+        #        jpeg2000_implementation=JPEG2000_IMPL_KAKADU,
+        #        bg_compression_flags=['-slope', str(bg_slope)],
+        #        fg_compression_flags=['-slope', str(fg_slope)],
+        #        )
 
         # TODO: maybe we can replace the existing image with the background image
         # here
