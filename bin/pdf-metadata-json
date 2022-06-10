@@ -216,7 +216,7 @@ def analyse(filename):
         scale = get_scale_from_image_data(image_data)
 
         page_data['estimated_scale'] = scale
-        page_data['estimated_dpi'] = int(72 * scale)
+        page_data['estimated_ppi'] = int(72 * scale)
         page_data['estimated_default_render_res'] = list(map(lambda x:x*scale, page_data['page_rect']))
 
         page_data['image_data'] = image_data
