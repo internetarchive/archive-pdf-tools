@@ -89,7 +89,7 @@ def guess_dpi(w, h, expected_format=(8.27, 11.69), round_to=[72, 96, 150, 300, 6
 def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
         image_files=None, dpi=None, skip_pages=None, dpi_pages=None,
         reporter=None,
-        verbose=False, stop_after=None,
+        verbose=False, debug=False, stop_after=None,
         render_text_lines=False,
         tmp_dir=None,
         jpeg2000_implementation=None,
@@ -271,7 +271,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         fg_downsample=None,
         denoise_mask=None, reporter=None,
         hq_pages=None, hq_bg_compression_flags=None, hq_fg_compression_flags=None,
-        verbose=False, tmp_dir=None, report_every=None,
+        verbose=False, debug=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
         force_1bit_output=None,
         jpeg2000_implementation=None, mrc_image_format=None, errors=None):
@@ -339,7 +339,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Potentially special path
             if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
                 image = decode_jpeg2000(imgfile, reduce_=downsample,
-                        impl=jpeg2000_implementation)
+                        impl=jpeg2000_implementation, debug=debug)
                 if downsample:
                     downsampled = True
             else:
@@ -374,7 +374,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         if image.mode == '1':
             ww, hh = image.size
             mask_jb2, mask_png = encode_mrc_mask(np.array(image), tmp_dir=tmp_dir,
-                    jbig2=jbig2, timing_data=timing_data)
+                    jbig2=jbig2, timing_data=timing_data, debug=debug)
 
             t = time()
 
@@ -405,7 +405,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             np_mask = next(mrc_gen)
             np_mask = np_mask ^ np.ones(np_mask.shape, dtype=bool)
             mask_jb2, mask_png = encode_mrc_mask(np_mask, tmp_dir=tmp_dir, jbig2=jbig2,
-                    timing_data=timing_data)
+                    timing_data=timing_data, debug=debug)
 
             if jbig2:
                 mask_contents = open(mask_jb2, 'rb').read()
@@ -445,7 +445,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                     tmp_dir=tmp_dir, jbig2=jbig2, timing_data=timing_data,
                     jpeg2000_implementation=jpeg2000_implementation,
                     mrc_image_format=mrc_image_format,
-                    embedded_jbig2=fast_insert_image_ok)
+                    embedded_jbig2=fast_insert_image_ok,
+                    debug=debug)
 
             if img_dir is not None:
                 shutil.copy(mask_f, join(img_dir, '%.6d_mask.jbig2' % idx))
@@ -560,7 +561,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         reporter=None,
         grayscale_pdf=False,
         force_1bit_output=False,
-        image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, tmp_dir=None,
+        image_mode=IMAGE_MODE_MRC, jbig2=False, verbose=False, debug=False,
+        tmp_dir=None,
         report_every=None, stop_after=None,
         jpeg2000_implementation=JPEG2000_IMPL_PILLOW,
         bg_compression_flags=None, fg_compression_flags=None,
@@ -635,7 +637,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
             image_files=image_files, dpi=dpi,
             skip_pages=skip_pages, dpi_pages=dpi_pages,
             reporter=reporter,
-            verbose=verbose, stop_after=stop,
+            verbose=verbose, debug=debug, stop_after=stop,
             render_text_lines=render_text_lines,
             tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
@@ -690,6 +692,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           hq_bg_compression_flags=hq_bg_compression_flags,
                           hq_fg_compression_flags=hq_fg_compression_flags,
                           verbose=verbose,
+                          debug=debug,
                           tmp_dir=tmp_dir,
                           report_every=report_every,
                           stop_after=stop,

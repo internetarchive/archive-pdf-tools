@@ -75,6 +75,8 @@ if __name__ == '__main__':
                            'the resulting PDF')
     misc_args.add_argument('-v', '--verbose', default=False, action='store_true',
                            help='Verbose output')
+    misc_args.add_argument('--debug', default=False, action='store_true',
+                           help='Debug output')
     misc_args.add_argument('--tmp-dir', default=None, type=str,
                            help='Directory to store temporary intermediate images')
     misc_args.add_argument('--report-every', default=None, type=int,
@@ -294,7 +296,7 @@ if __name__ == '__main__':
                  args.bw_pdf,
                  args.image_mode,
                  args.mask_compression == COMPRESSOR_JBIG2,
-                 args.verbose, args.tmp_dir,
+                 args.verbose, args.debug, args.tmp_dir,
                  args.report_every, args.stop_after,
                  args.jpeg2000_implementation,
                  args.bg_compression_flags.split(' '),

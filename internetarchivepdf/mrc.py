@@ -467,7 +467,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
 
 def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
-                    timing_data=None):
+                    timing_data=None, debug=False):
     """
     Encode mask image either to JBIG2 or PNG.
 
@@ -494,10 +494,14 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
     mask.save(mask_img_png, compress_level=0)
 
     if jbig2:
+        args = ['jbig2', mask_img_png]
         if embedded_jbig2:
-            out = subprocess.check_output(['jbig2', '-p', mask_img_png])
-        else:
-            out = subprocess.check_output(['jbig2', mask_img_png])
+            args = ['jbig2', '-p', mask_img_png]
+
+        if debug:
+            print('check_output: %s' % args, file=sys.stderr)
+
+        out = subprocess.check_output(args)
         fp= open(mask_img_jbig2, 'wb+')
         fp.write(out)
         fp.close()
@@ -512,7 +516,8 @@ def encode_mrc_mask(np_mask, tmp_dir=None, jbig2=True, embedded_jbig2=False,
 
 
 def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
-        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
+        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None,
+        debug=False):
     """
     Encode image as JPEG2000 or JPEG, with the provided compression settings
     and JPEG2000/JPEG encoder.
@@ -526,6 +531,7 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
     * jpeg2000_implementation (str): What JPEG2000 implementation to use
     * mrc_image_format (str): What image format to produce
     * timing_data (optional): Add time information to timing_data structure
+    * debug (bool, optional): Write debug info to stderr
 
     Returns the filepath to the JPEG2000 image
     """
@@ -548,14 +554,17 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
     if mrc_image_format == COMPRESSOR_JPEG:
         img.save(img_tiff, quality=100)
 
-        output = subprocess.check_output(['jpegoptim'] + img_compression_flags +
-                [img_tiff, '--stdout'])
+
+        args = ['jpegoptim'] + img_compression_flags + [img_tiff, '--stdout']
+        if debug:
+            print('check_output: %s' % args, file=sys.stderr)
+        output = subprocess.check_output(args)
         tmpfd=open(img_jp2, 'bw+') # XXX: FIXME: this defeats the point of a tmpfile
         tmpfd.write(output)
         tmpfd.close()
     else:
         encode_jpeg2000(img, img_jp2, jpeg2000_implementation,
-                        img_compression_flags, imgtype=imgtype)
+                        img_compression_flags, imgtype=imgtype, debug=debug)
 
 
     if timing_data is not None:
@@ -565,7 +574,8 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
 
 
 def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
-        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
+        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None,
+        debug=False):
     """
     Encode background image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -583,11 +593,13 @@ def encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=None,
     """
     return encode_mrc_img(np_bg, bg_compression_flags, 'bg', tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
-            mrc_image_format=mrc_image_format, timing_data=timing_data)
+            mrc_image_format=mrc_image_format, timing_data=timing_data,
+            debug=debug)
 
 
 def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
-        jpeg2000_implementation=None, mrc_image_format=None, timing_data=None):
+        jpeg2000_implementation=None, mrc_image_format=None,
+        timing_data=None, debug=False):
     """
     Encode foreground image as JPEG2000, with the provided compression settings
     and JPEG2000 encoder.
@@ -605,13 +617,14 @@ def encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=None,
     """
     return encode_mrc_img(np_fg, fg_compression_flags, 'fg', tmp_dir=tmp_dir,
             jpeg2000_implementation=jpeg2000_implementation,
-            mrc_image_format=mrc_image_format, timing_data=timing_data)
+            mrc_image_format=mrc_image_format, timing_data=timing_data,
+            debug=debug)
 
 
 def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=None,
                       tmp_dir=None, jbig2=True, timing_data=None,
                       jpeg2000_implementation=None, mrc_image_format=None,
-                      embedded_jbig2=False):
+                      embedded_jbig2=False, debug=False):
     mask_img_jbig2, mask_img_png = encode_mrc_mask(next(mrc_gen),
             tmp_dir=tmp_dir, jbig2=jbig2, embedded_jbig2=embedded_jbig2,
             timing_data=timing_data)
@@ -620,7 +633,7 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
     fg_img_jp2 = encode_mrc_foreground(np_fg, fg_compression_flags, tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
                                        mrc_image_format=mrc_image_format,
-                                       timing_data=timing_data)
+                                       timing_data=timing_data, debug=debug)
     fg_h, fg_w = np_fg.shape[0:2]
     np_fg = None
 
@@ -628,7 +641,7 @@ def encode_mrc_images(mrc_gen, bg_compression_flags=None, fg_compression_flags=N
     bg_img_jp2 = encode_mrc_background(np_bg, bg_compression_flags, tmp_dir=tmp_dir,
                                        jpeg2000_implementation=jpeg2000_implementation,
                                        mrc_image_format=mrc_image_format,
-                                       timing_data=timing_data)
+                                       timing_data=timing_data, debug=debug)
     bg_h, bg_w = np_bg.shape[0:2]
     np_bg = None
 

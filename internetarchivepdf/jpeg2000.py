@@ -41,7 +41,7 @@ OPJ_DECOMPRESS = 'opj_decompress'
 GRK_COMPRESS = 'grk_compress'
 GRK_DECOMPRESS = 'grk_decompress'
 
-def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
+def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None, debug=False):
     """ Encode PIL image to JPEG2000 file
 
     Args:
@@ -75,12 +75,14 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None):
         # https://github.com/internetarchive/archive-pdf-tools/issues/41)
         args = add_impl_args(args, impl, encode=True)
 
+        if debug:
+            print('check_call: %s' % args, file=sys.stderr)
         check_call(args, stdout=DEVNULL, stderr=DEVNULL)
 
         remove(img_tiff)
 
 
-def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=None):
+def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=None, debug=False):
     """ Decode JPEG2000 file to PIL image
 
     Args:
@@ -122,6 +124,9 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=Non
                 args += ['-r', str(reduce_ - 1)]
 
         args = add_impl_args(args, impl, encode=False)
+
+        if debug:
+            print('check_call: %s' % args, file=sys.stderr)
         check_call(args, stdout=DEVNULL, stderr=DEVNULL)
 
         img = Image.open(img_tiff)
