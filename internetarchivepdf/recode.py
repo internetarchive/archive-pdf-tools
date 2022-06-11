@@ -274,7 +274,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         verbose=False, debug=False, tmp_dir=None, report_every=None,
         stop_after=None, grayscale_pdf=False,
         force_1bit_output=None,
-        jpeg2000_implementation=None, mrc_image_format=None, errors=None):
+        jpeg2000_implementation=None, mrc_image_format=None, threads=None,
+        errors=None):
     hocr_iter = hocr_page_iterator(hocr_file)
 
     skipped_pages = 0
@@ -339,7 +340,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Potentially special path
             if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
                 image = decode_jpeg2000(imgfile, reduce_=downsample,
-                        impl=jpeg2000_implementation, debug=debug)
+                        impl=jpeg2000_implementation, threads=threads, debug=debug)
                 if downsample:
                     downsampled = True
             else:
@@ -446,6 +447,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
                     jpeg2000_implementation=jpeg2000_implementation,
                     mrc_image_format=mrc_image_format,
                     embedded_jbig2=fast_insert_image_ok,
+                    threads=threads,
                     debug=debug)
 
             if img_dir is not None:
@@ -573,6 +575,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         denoise_mask=None,
         hq_pages=None,
         hq_bg_compression_flags=None, hq_fg_compression_flags=None,
+        threads=None,
         render_text_lines=False,
         metadata_url=None, metadata_title=None, metadata_author=None,
         metadata_creator=None, metadata_language=None,
@@ -700,6 +703,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
                           force_1bit_output=force_1bit_output,
                           jpeg2000_implementation=jpeg2000_implementation,
                           mrc_image_format=mrc_image_format,
+                          threads=threads,
                           errors=errors)
     elif image_mode in (0, 1):
         # TODO: Update this codepath

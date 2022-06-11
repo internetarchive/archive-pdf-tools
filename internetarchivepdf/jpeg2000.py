@@ -41,7 +41,8 @@ OPJ_DECOMPRESS = 'opj_decompress'
 GRK_COMPRESS = 'grk_compress'
 GRK_DECOMPRESS = 'grk_decompress'
 
-def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None, debug=False):
+def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None,
+        threads=None, debug=False):
     """ Encode PIL image to JPEG2000 file
 
     Args:
@@ -49,6 +50,7 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None, deb
     * image (PIL.Image): image to compress
     * impl (str): JPEG2000 implementation
     * flags list of str: encoding flags
+    * threads (int): How many threads to use
     """
     if impl not in JPEG2000_IMPLS:
         raise Exception('Error: invalid jpeg2000 implementation?')
@@ -73,7 +75,7 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None, deb
         # not support threads, but if we specify the flags at the end, it will
         # just ignore the threads and not the variables passed before that (see
         # https://github.com/internetarchive/archive-pdf-tools/issues/41)
-        args = add_impl_args(args, impl, encode=True)
+        args = add_impl_args(args, impl, encode=True, threads=threads)
 
         if debug:
             print('check_call: %s' % args, file=sys.stderr)
@@ -82,7 +84,8 @@ def encode_jpeg2000(image, outpath, impl, flags, tmp_dir=None, imgtype=None, deb
         remove(img_tiff)
 
 
-def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=None, debug=False):
+def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW,
+        tmp_dir=None, threads=None, debug=False):
     """ Decode JPEG2000 file to PIL image
 
     Args:
@@ -91,6 +94,7 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=Non
     * reduce_ (bool or None): Optional, reduction factor
     * impl (str): JPEG2000 implementation
     * tmp_dir (str): Temporary directory to use, if any
+    * threads (int): How many theads to use
 
     Returns: loaded image (PIL.Image)
     """
@@ -123,7 +127,7 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW, tmp_dir=Non
             if impl in (JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK):
                 args += ['-r', str(reduce_ - 1)]
 
-        args = add_impl_args(args, impl, encode=False)
+        args = add_impl_args(args, impl, encode=False, threads=threads)
 
         if debug:
             print('check_call: %s' % args, file=sys.stderr)
@@ -169,22 +173,30 @@ def get_jpeg2000_info(infile, impl, errors=None):
     return size, mode
 
 
-def add_impl_args(args, impl, encode=False):
+def add_impl_args(args, impl, encode=False, threads=None):
+    threads = str(threads) if threads else '1'
+
     # Use just one core
     if impl in (JPEG2000_IMPL_KAKADU,):
-        args += ['-num_threads', '0']
+        # From kdu_expand/kdu_compress:
+        # The special value of 0 may be used to specify that you want to use the
+        # conventional single-threaded processing machinery -- i.e., you don't
+        # want to create or use a threading environment.
+        if threads == '1':
+            threads = '0'
+        args += ['-num_threads', threads]
         if encode:
             args = [KDU_COMPRESS] + args
         else:
             args = [KDU_EXPAND] + args
     if impl in (JPEG2000_IMPL_OPENJPEG,):
-        args += ['-threads', '1']
+        args += ['-threads', threads]
         if encode:
             args = [OPJ_COMPRESS] + args
         else:
             args = [OPJ_DECOMPRESS] + args
     if impl in (JPEG2000_IMPL_GROK,):
-        args += ['-H', '1']
+        args += ['-H', threads]
         if encode:
             args = [GRK_COMPRESS] + args
         else:

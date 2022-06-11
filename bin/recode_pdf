@@ -63,6 +63,8 @@ if __name__ == '__main__':
     input_args.add_argument('-O', '--out-dir', type=str, default=None,
                             help='Output directory to (also) write images to.')
 
+    misc_args.add_argument('--threads', type=int, default=None,
+                           help='How many threads to use, default is one')
     misc_args.add_argument('-R', '--reporter', type=str, default=None,
                            help='Program to launch when reporting progress.')
     misc_args.add_argument('--grayscale-pdf', action='store_true',
@@ -309,6 +311,7 @@ if __name__ == '__main__':
                  args.hq_pages,
                  args.hq_bg_compression_flags.split(' '),
                  args.hq_fg_compression_flags.split(' '),
+                 args.threads,
                  args.render_text_lines,
                  args.metadata_url, args.metadata_title, args.metadata_author,
                  args.metadata_creator, args.metadata_language,
