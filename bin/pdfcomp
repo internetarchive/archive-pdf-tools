@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+import sys
+import os.path
+import tempfile
+import shutil
+
+
+from subprocess import check_call, check_output
+
+
+DEBUG = False
+
+if __name__ == '__main__':
+    infile = sys.argv[1]
+    outfile = sys.argv[2]
+
+
+    tmpd = tempfile.mkdtemp()
+    pdfmeta = os.path.join(tmpd, 'pdfmeta.json')
+    pdfhocr = os.path.join(tmpd, 'pdfhocr.html')
+
+    if DEBUG:
+        stde = sys.stderr
+    else:
+        stde = open(os.devnull, 'wb')
+
+    out = check_output(['pdf-metadata-json', infile], stderr=stde)
+    with open(pdfmeta, 'wb+') as fd:
+        fd.write(out)
+
+    out = check_output(['pdf-to-hocr', '-f', infile, '-J', pdfmeta], stderr=stde)
+    with open(pdfhocr, 'wb+') as fd:
+        fd.write(out)
+
+    check_call(['compress-pdf-images', infile, pdfhocr, outfile], stderr=stde)
+
+    oldsize = os.path.getsize(infile)
+    newsize = os.path.getsize(outfile)
+    compression_ratio  = oldsize / newsize
+    print('Compression factor:', compression_ratio, file=sys.stderr)
+
+    shutil.rmtree(tmpd)
