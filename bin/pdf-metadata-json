@@ -58,10 +58,10 @@ def get_scale_from_image_data(image_data):
             height = info['height']
 
             if transform[0] < width:
-                scale_x = width / transform[0]
+                scale_x = max(scale_x, width / transform[0])
 
             if transform[3] < width:
-                scale_y = width / transform[3]
+                scale_y = max(scale_x, width / transform[3])
 
         scale = max(scale_x, scale_y)
     else:
@@ -70,6 +70,34 @@ def get_scale_from_image_data(image_data):
     # TODO: Do we want some min scale? (if it's less than x, set to x)
 
     return scale
+
+
+def get_recommended_image_format_from_page_data(page_data):
+    rgb_seen = False
+    grayscale_seen = False
+    bitonal_seen = False
+
+
+    for page in page_data:
+        if 'image_data' in page:
+            for image in page['image_data']:
+                if image['colorspace'] == 'DeviceRGB':
+                    rgb_seen = True
+                elif image['colorspace'] == 'DeviceGray' and image['depth'] == 8:
+                    grayscale_seen = True
+                elif image['colorspace'] == 'DeviceGray' and image['depth'] == 1:
+                    bitonal_seen = True
+                else:
+                    raise ValueError('Cannot recommend image format, unknown image: %s' % image)
+
+    if rgb_seen:
+        return 'RGB'
+    if grayscale_seen:
+        return 'Grayscale'
+    if bitonal_seen:
+        return 'Bitonal'
+
+    raise ValueError('Cannot recommend image format')
 
 
 def analyse(filename):
@@ -96,7 +124,7 @@ def analyse(filename):
     res['page_data'] = []
 
     for ppidx, page in enumerate(pdf):
-        print(ppidx, file=sys.stderr)
+        #print(ppidx, file=sys.stderr)
         page_data = {}
 
         page_data['page_number'] = page.number
@@ -141,7 +169,7 @@ def analyse(filename):
                 print('Image not actually present on the page. Skipping this image.', file=sys.stderr)
                 continue
 
-            print(iminfo, file=sys.stderr)
+            #print(iminfo, file=sys.stderr)
 
             # TODO: also look at iminfo['cs-name'] and iminfo['colorspace'],
             # iminfo['size'], although we maybe want to skip iminfo if we can
@@ -158,7 +186,8 @@ def analyse(filename):
             if typ != 'name':
                 raise ValueError('Invalid type for Filter: %s' % typ)
 
-            typ, img_info['colorspace'] = pdf.xref_get_key(img_id, 'ColorSpace')
+            img_info['colorspace'] = iminfo['cs-name']
+            #typ, img_info['colorspace'] = pdf.xref_get_key(img_id, 'ColorSpace')
             #if typ != 'name':
             #    raise ValueError('Invalid type for ColorSpace: %s' % typ)
 
@@ -177,7 +206,9 @@ def analyse(filename):
                 #if typ != 'name':
                 #    raise ValueError('Invalid type for Filter: %s' % typ)
 
-                typ, mask_info['colorspace'] = pdf.xref_get_key(mask_id, 'ColorSpace')
+                # XXX: What to do with masks?
+                ## XXX: Make this something sensible
+                #typ, mask_info['colorspace'] = pdf.xref_get_key(mask_id, 'ColorSpace')
                 # Is sometimes missing, which I think makes sense, since this is
                 # only ever 1 bit
                 #if typ != 'name':
@@ -223,8 +254,7 @@ def analyse(filename):
 
         res['page_data'].append(page_data)
 
-        #from pprint import pprint
-        #pprint(page_data)
+    res['imagestack_image_format'] = get_recommended_image_format_from_page_data(res['page_data'])
 
     # TODO:
     # - permissions
