@@ -183,7 +183,7 @@ def analyse(filename):
 
             # Supported xref keys ('Filter', 'Type', 'Subtype', 'BitsPerComponent', 'Width', 'Height', 'ColorSpace', 'Length')
             typ, img_info['format'] = pdf.xref_get_key(img_id, 'Filter')
-            if typ != 'name':
+            if typ != 'name' and typ != 'array':
                 raise ValueError('Invalid type for Filter: %s' % typ)
 
             img_info['colorspace'] = iminfo['cs-name']
