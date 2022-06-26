@@ -1,7 +1,7 @@
 MRC Example Images
 ~~~~~~~~~~~~~~~~~~
 
-The first example in it's compressed (relatively high quality) JPEG2000 form is
+The first example in its compressed (relatively high quality) JPEG2000 form is
 924K in size (resolution 2093x2813). The MRC variant is 60K is size (15.4K for
 the background, 5K for the foreground, and 40.2K for the mask), the background
 is downscaled by a factor 3.
