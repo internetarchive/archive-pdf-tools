@@ -438,7 +438,7 @@ def fast_mask_denoise(np.ndarray[UINT8DTYPE_t, ndim=2] mask, int width, int
     """
     Fast in-place denoiser, focussed on speed rather than quality.
 
-    This function removes noise based on the amount of pixels in it's
+    This function removes noise based on the amount of pixels in its
     neighbourhood
 
     Args:

@@ -159,7 +159,7 @@ overlaying the mask component of the image, which is losslessly compressed
 (typically using either JBIG2 or CCITT).
 
 In a PDF, this usually means the background image is inserted into a page,
-followed by the foreground image, which uses the mask as it's alpha layer.
+followed by the foreground image, which uses the mask as its alpha layer.
 
 Usage
 -----
