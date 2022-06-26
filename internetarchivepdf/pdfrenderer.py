@@ -539,7 +539,7 @@ def CodepointToUtf16be(code):
         a = code - 0x010000
         high_surrogate = (0x03FF & (a >> 10)) + 0xD800
         low_surrogate = (0x03FF & a) + 0xDC00
-        res = '%04X04X' % (high_surrogate, low_surrogate)
+        res = '%04X%04X' % (high_surrogate, low_surrogate)
 
     return True, res.encode('ascii')
 
