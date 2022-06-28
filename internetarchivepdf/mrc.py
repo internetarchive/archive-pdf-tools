@@ -229,13 +229,13 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
             k = 0.1
             thres = threshold_image(np_lineimg, dpi, k)
             ones = np.count_nonzero(thres)
-            zero = (img.size[0] * img.size[1]) - ones
-            ratio = (ones/(zero+ones))*100
+            zero = np_lineimg.size - ones
+            ratio = (ones/(zero+ones))
 
             thres_invert = threshold_image(np_lineimg_invert, dpi, k)
             ones_i = np.count_nonzero(thres_invert)
-            zero_i = (img.size[0] * img.size[1]) - ones
-            inv_ratio = (ones_i/(zero_i+ones_i))*100
+            zero_i = np_lineimg.size - ones_i
+            inv_ratio = (ones_i/(zero_i+ones_i))
 
             if ratio < 0.3 or inv_ratio < 0.3:
                 th = None
