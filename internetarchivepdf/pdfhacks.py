@@ -233,7 +233,7 @@ def write_basic_ua(to_pdf, language=None):
     parenttree_kids_xrefs = []
     parenttree_kids_indirect_xrefs = []
 
-    kids_cnt = ceil(to_pdf.pageCount / 32)
+    kids_cnt = ceil(to_pdf.page_count / 32)
     for _ in range(kids_cnt):
         kid_xref = to_pdf.get_new_xref()
         parenttree_kids_xrefs.append(kid_xref)

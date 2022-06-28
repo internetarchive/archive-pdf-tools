@@ -652,7 +652,7 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     # We open the generated file but do not modify it in place
     outdoc = fitz.open(tess_tmp_path)
 
-    HQ_PAGES = [False for x in range(outdoc.pageCount)]
+    HQ_PAGES = [False for x in range(outdoc.page_count)]
     if hq_pages is not None:
         index_range = map(int, hq_pages.split(','))
         for i in index_range:
