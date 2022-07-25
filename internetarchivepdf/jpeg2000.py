@@ -156,7 +156,7 @@ def get_jpeg2000_info(infile, impl, errors=None):
     # the image size - so let's use some internal functions to speed that up.
     fd = open(infile, 'rb')
     try:
-        size, mode, mimetype = Jpeg2KImagePlugin._parse_jp2_header(fd)
+        size, mode, mimetype, dpi = Jpeg2KImagePlugin._parse_jp2_header(fd)
     except Exception:
         # JP2 lacks some info and PIL doesn't like it (Image.open
         # will not work, so use kdu_expand to create a tiff)
