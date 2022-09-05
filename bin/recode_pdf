@@ -5,7 +5,7 @@ from internetarchivepdf.recode import recode
 from internetarchivepdf.jpeg2000 import KDU_COMPRESS, KDU_EXPAND, OPJ_COMPRESS, \
     OPJ_DECOMPRESS, GRK_COMPRESS, GRK_DECOMPRESS
 from internetarchivepdf.const import (VERSION, PRODUCER,
-        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC,
+        IMAGE_MODE_PASSTHROUGH, IMAGE_MODE_PIXMAP, IMAGE_MODE_MRC, IMAGE_MODE_SKIP,
         JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW,
         COMPRESSOR_JPEG2000, COMPRESSOR_JPEG, COMPRESSOR_JBIG2, COMPRESSOR_CCITT,
         DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN)
@@ -289,6 +289,11 @@ if __name__ == '__main__':
 
         else:
             raise Exception('Invalid mrc image format')
+    elif args.image_mode == IMAGE_MODE_SKIP:
+        args.bg_compression_flags = ''
+        args.fg_compression_flags = ''
+        args.hq_bg_compression_flags = ''
+        args.hq_fg_compression_flags = ''
 
 
     res = recode(args.from_pdf, args.from_imagestack, args.dpi, args.hocr_file,
