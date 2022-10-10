@@ -133,6 +133,13 @@ def get_xref_pix_info(pdf, xref):
         data['depth'] = 8  # XXX: hardcoded for now, n is the bytes required for all components
         data['mode'] = 'RGBA' if pix.alpha else 'RGB'
 
+    elif pix.colorspace.name == 'DeviceCMYK':
+        # This should be always 8, per CMYK spec
+        # CMYK doesn't have alpha, so we don't check for that
+        data['depth'] = 8
+        data['mode'] = 'CMYK'
+
+
     else:
         raise Exception('Unknown colorspace:', pix.colorspace.name)
 
