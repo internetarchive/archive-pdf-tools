@@ -1,4 +1,4 @@
-PyMuPDF==1.19.2
+PyMuPDF==1.21.0
 numpy==1.21.3
 scipy==1.7.2
 lxml
