@@ -16,7 +16,7 @@
 #
 # Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
 
-VERSION = '1.5.0'
+VERSION = '1.5.1'
 
 PRODUCER = 'Internet Archive PDF %s; including '\
            'mupdf and pymupdf/skimage' % (VERSION,)
