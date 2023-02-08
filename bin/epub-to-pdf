@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""
+Based on the PyMuPDF example program to convert files to PDF:
+
+License: GNU GPL V3
+(c) 2018 Jorj X. McKie
+
+
+Changes by:
+
+Merlijn Wajer <merlijn@archive.org>
+
+
+Description
+-----------
+The table of contents and the links of the input file are recovered. While this
+works well for bookmarks (outlines, table of contents) links will only work as
+expected as long as they are not of type "LINK_NAMED". This link type is skipped
+by the script.
+
+For XPS and EPUB though, internal links are of type "LINK_NAMED". MuPDF does not
+resolve them to page numbers. So, anyone knowledgeable enough about the internal
+structure of these document types can further interpret and resolve these link
+types.
+"""
+
+VERSION = '1.0.0'
+
+
+import sys
+import fitz
+
+from internetarchivepdf.const import __version__ as iapdf_version
+
+if __name__ == '__main__':
+    in_file = sys.argv[1]
+    out_file = sys.argv[2]
+
+    doc = fitz.open(in_file)
+
+    if doc.is_pdf:
+        raise SystemExit('document is PDF already')
+
+    b = doc.convert_to_pdf()  # convert to pdf
+    pdf = fitz.open('pdf', b)  # open as pdf
+
+    toc = doc.get_toc()  # table of contents of input
+    pdf.set_toc(toc)  # simply set it for output
+    meta = doc.metadata  # read and set metadata
+
+    producer = 'Internet Archive PDF converter version %s (archive-pdf-tools version %s, PyMuPDF version %s)' % (VERSION, iapdf_version, fitz.VersionBind)
+    creator = 'Internet Archive PDF converter'
+
+    if not meta['producer']:
+        meta['producer'] = producer
+
+    if not meta['creator']:
+        meta['creator'] = creator
+
+    pdf.set_metadata(meta)
+
+    # now process the links
+    link_cnti = 0
+    link_skip = 0
+    for pinput in doc:  # iterate through input pages
+        links = pinput.get_links()  # get list of links
+        link_cnti += len(links)  # count how many
+        pout = pdf[pinput.number]  # read corresp. output page
+        for l in links:  # iterate though the links
+            if l['kind'] == fitz.LINK_NAMED:  # we do not handle named links
+                link_skip += 1  # count them
+                continue
+            pout.insert_link(l)  # simply output the others
+
+    pdf.save(out_file, garbage=4, deflate=True)
+    print('Skipped %i named links of a total of %i in input.' % (link_skip, link_cnti))
