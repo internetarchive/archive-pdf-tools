@@ -131,7 +131,10 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
             ppi = 72 / scaler
         elif image_files is not None:
             # Do not subtract skipped pages here
-            imgfile = image_files[idx]
+            try:
+                imgfile = image_files[idx]
+            except IndexError:
+                raise IndexError('Number of pages in hOCR does not match number of images provided')
 
             if imgfile.endswith('.jp2'):
                 size, _ = get_jpeg2000_info(imgfile, jpeg2000_implementation, errors)
