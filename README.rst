@@ -73,6 +73,8 @@ First install dependencies. For example, in Ubuntu::
 
 
     sudo apt install libleptonica-dev libopenjp2-tools libxml2-dev libxslt-dev python3-dev python3-pip
+
+    sudo apt install automake libtool
     git clone https://github.com/agl/jbig2enc
     cd jbig2enc
     ./autogen.sh
@@ -85,7 +87,7 @@ Because `archive-pdf-tools` is on the `Python Package Index <https://pypi.org/pr
 
     # Latest version
     pip3 install archive-pdf-tools
-    
+
     # Specific version
     pip3 install archive-pdf-tools==1.4.14
 
