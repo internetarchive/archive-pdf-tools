@@ -7,7 +7,7 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     env:
-      CIBW_BUILD: cp37-* cp38-* cp39-* cp310-*
+      CIBW_BUILD: cp37-* cp38-* cp39-* cp310-* cp311-*
       CIBW_SKIP: cp36-* *-win32 *-manylinux_i686 pp* *musllinux*
     strategy:
       matrix:
