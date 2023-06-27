@@ -186,6 +186,8 @@ if __name__ == '__main__':
                                help='Subjects')
     metadata_args.add_argument('--metadata-creatortool', type=str, default=None,
                                help='Creator tool')
+    metadata_args.add_argument('--ignore-invalid-pagenumbers', action='store_true',
+                               help='Do not error if scandata has invalid page numbers')
 
     args = parser.parse_args()
     if (args.from_pdf is None and args.from_imagestack is None) or args.out_pdf is None:
@@ -320,7 +322,8 @@ if __name__ == '__main__':
                  args.render_text_lines,
                  args.metadata_url, args.metadata_title, args.metadata_author,
                  args.metadata_creator, args.metadata_language,
-                 args.metadata_subject, args.metadata_creatortool)
+                 args.metadata_subject, args.metadata_creatortool,
+                 args.ignore_invalid_pagenumbers)
 
     errors = res['errors']
     if len(errors) > 0:

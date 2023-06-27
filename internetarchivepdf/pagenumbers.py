@@ -99,7 +99,7 @@ def alpha_to_number(n):
     return res
 
 
-def get_val_type(v):
+def get_val_type(v, ignore_invalid=False):
     if v is None:
         # XXX: Does this special case make sense?
         return INVALID
@@ -115,7 +115,10 @@ def get_val_type(v):
     elif is_alpha_lower(v):
         return ALPHA_LOWER
     else:
-        raise ValueError('Page number not in spec: %s' % repr(v))
+        if ignore_invalid:
+            return INVALID
+        else:
+            raise ValueError('Page number not in spec: %s' % repr(v))
 
 
 def get_val_value(v, vtype):
@@ -142,7 +145,7 @@ def find_next_nonzero(series):
     return None
 
 
-def parse_series(series):
+def parse_series(series, ignore_invalid=False):
     # Let's first split up the series:
     # - detect when the numbers are not in sequence
     # - detect when the type changes
@@ -161,7 +164,7 @@ def parse_series(series):
         new = False
 
         try:
-            val_type = get_val_type(val)
+            val_type = get_val_type(val, ignore_invalid=ignore_invalid)
             val_value = get_val_value(val, val_type)
         except ValueError as e:
             all_ok = False
@@ -170,7 +173,7 @@ def parse_series(series):
 
         if val_type in (ROMAN_UPPER, ROMAN_LOWER):
             next_val = find_next_nonzero(series[idx+1:])
-            next_val_type = get_val_type(next_val)
+            next_val_type = get_val_type(next_val, ignore_invalid=ignore_invalid)
 
             if val_type != next_val_type:
                 if val_type == ROMAN_UPPER and next_val_type == ALPHA_UPPER or \
@@ -180,7 +183,7 @@ def parse_series(series):
 
         if val_type in (ALPHA_UPPER, ALPHA_LOWER):
             next_val = find_next_nonzero(series[idx+1:])
-            next_val_type = get_val_type(next_val)
+            next_val_type = get_val_type(next_val, ignore_invalid=ignore_invalid)
 
             ord_val = None
             ord_next_val = None

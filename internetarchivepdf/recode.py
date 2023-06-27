@@ -582,7 +582,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         render_text_lines=False,
         metadata_url=None, metadata_title=None, metadata_author=None,
         metadata_creator=None, metadata_language=None,
-        metadata_subject=None, metadata_creatortool=None):
+        metadata_subject=None, metadata_creatortool=None,
+        ignore_invalid_pagenumbers=False):
     # TODO: document that the scandata document dpi will override the dpi arg
     # TODO: Take hq-pages and reporter arg and change format (as lib call we
     # don't want to pass that as one string, I guess?)
@@ -722,7 +723,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
     if scandata_file is not None:
         # XXX: we parse scandata twice now, let's not do that
         # 3b. Write page labels from scandata file, if present
-        write_page_labels(outdoc, scandata_file, errors=errors)
+        write_page_labels(outdoc, scandata_file, errors=errors,
+                          ignore_invalid=ignore_invalid_pagenumbers)
 
 
     lang_if_any = metadata_language[0] if metadata_language else None
