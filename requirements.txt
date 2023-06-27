@@ -1,5 +1,5 @@
 PyMuPDF>=1.21.0
-numpy==1.21.3
+numpy>=1.21.3
 scipy==1.7.2
 scikit-image==0.18.3
 Pillow==9.2.0
