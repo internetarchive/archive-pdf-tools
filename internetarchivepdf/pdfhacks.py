@@ -207,9 +207,9 @@ def write_pdfa(to_pdf):
     to_pdf.update_object(catalogxref, s)
 
 
-def write_page_labels(to_pdf, scandata, errors=None):
+def write_page_labels(to_pdf, scandata, errors=None, ignore_invalid=False):
     page_numbers = scandata_xml_get_page_numbers(scandata)
-    res, all_ok = parse_series(page_numbers)
+    res, all_ok = parse_series(page_numbers, ignore_invalid=False)
 
     # Add warning/error
     if errors is not None and not all_ok:
