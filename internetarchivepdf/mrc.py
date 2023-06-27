@@ -75,7 +75,7 @@ def threshold_image(img, dpi, k=0.34):
             window_size += 1
 
     h, w = img.shape
-    out_img = np.ndarray(img.shape, dtype=np.bool)
+    out_img = np.ndarray(img.shape, dtype=bool)
     out_img = np.reshape(out_img, w*h)
     in_img = np.reshape(img, w*h)
 
@@ -103,7 +103,7 @@ def denoise_bregman(binary_img):
 
     #denoise = denoise > 0.6
     denoise = denoise > 0.4  # XXX: 0.4?
-    denoise = np.array(denoise, dtype=np.bool)
+    denoise = np.array(denoise, dtype=bool)
 
     return denoise
 
@@ -374,7 +374,7 @@ def create_mrc_hocr_components(image, hocr_word_data,
     MIX_THRESHOLD = True
     if MIX_THRESHOLD:
         # XXX: this nukes the hocr threshold, testing only
-        # mask_arr = np.zeros(mask_arr.shape, dtype=np.bool)
+        # mask_arr = np.zeros(mask_arr.shape, dtype=bool)
 
         # Modifies mask_arr in place
         create_threshold_mask(mask_arr, grayimgf, dpi=dpi,
