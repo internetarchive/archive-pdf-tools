@@ -215,7 +215,7 @@ License
 
 License for all code (minus ``internetarchive/pdfrenderer.py``) is AGPL 3.0.
 
-``internetarchive/pdfrenderer.py`` is Apache 2.0, which matches the Tesseract
+``internetarchivepdf/pdfrenderer.py`` is Apache 2.0, which matches the Tesseract
 license for that file.
 
 
