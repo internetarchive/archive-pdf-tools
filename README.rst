@@ -213,7 +213,7 @@ is broken down into the foreground, background, masks and text layer.
 License
 =======
 
-License for all code (minus ``internetarchive/pdfrenderer.py``) is AGPL 3.0.
+License for all code (minus ``internetarchivepdf/pdfrenderer.py``) is AGPL 3.0.
 
 ``internetarchivepdf/pdfrenderer.py`` is Apache 2.0, which matches the Tesseract
 license for that file.
