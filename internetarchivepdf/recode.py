@@ -42,7 +42,7 @@ from internetarchivepdf.mrc import create_mrc_hocr_components, \
         encode_mrc_images, encode_mrc_mask
 from internetarchivepdf.grayconvert import special_gray_convert
 from internetarchivepdf.pdfhacks import fast_insert_image, write_pdfa, \
-        write_page_labels, write_basic_ua, write_metadata
+        write_page_labels, write_basic_ua, write_metadata, write_pdf_toc
 from internetarchivepdf.pdfrenderer import TessPDFRenderer
 from internetarchivepdf.scandata import scandata_xml_get_skip_pages, \
         scandata_xml_get_page_numbers, scandata_xml_get_dpi_per_page, \
@@ -725,6 +725,8 @@ def recode(from_pdf=None, from_imagestack=None, dpi=None, hocr_file=None,
         # 3b. Write page labels from scandata file, if present
         write_page_labels(outdoc, scandata_file, errors=errors,
                           ignore_invalid=ignore_invalid_pagenumbers)
+
+        write_pdf_toc(outdoc, scandata_file)
 
 
     lang_if_any = metadata_language[0] if metadata_language else None
