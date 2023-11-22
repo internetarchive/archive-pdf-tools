@@ -33,7 +33,8 @@ from xml.sax.saxutils import escape as xmlescape
 from internetarchivepdf.const import COMPRESSOR_JPEG, COMPRESSOR_JPEG2000, \
         COMPRESSOR_JBIG2, PRODUCER, RECODE_RUNTIME_WARNING_INVALID_PAGE_NUMBERS
 from internetarchivepdf.pagenumbers import parse_series, series_to_pdf
-from internetarchivepdf.scandata import scandata_xml_get_page_numbers
+from internetarchivepdf.scandata import scandata_xml_get_page_numbers, \
+        scandata_xml_get_toc
 
 
 JPX_TEMPL = """<<
@@ -222,6 +223,18 @@ def write_page_labels(to_pdf, scandata, errors=None, ignore_invalid=False):
     s += '>>'
     to_pdf.update_object(catalogxref, s)
 
+
+def write_pdf_toc(to_pdf, scandata):
+    toc = scandata_xml_get_toc(scandata)
+
+    pdf_toc = []
+
+    for entry in toc:
+        pdf_toc.append([entry['level'],
+                        entry['title'],
+                        entry['accessible-page'] + 1])
+
+    to_pdf.set_toc(pdf_toc)
 
 
 def write_basic_ua(to_pdf, language=None):

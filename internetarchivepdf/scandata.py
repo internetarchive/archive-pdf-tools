@@ -17,6 +17,7 @@
 # Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
 
 import xmltodict
+from collections import OrderedDict
 
 
 def scandata_xml_get_skip_pages(xml_file):
@@ -95,3 +96,55 @@ def scandata_xml_get_document_dpi(xml_file):
             return None
 
     return doc_ppi
+
+
+def scandata_xml_get_toc(xml_file):
+    """
+    Returns a table of contents given a parsed scandata.xml
+
+    Args:
+
+    * scandata: Parsed scandata as returned by scandata_parse
+
+    Returns:
+
+    * List of dict describing the table of contents:
+      Indexes of pages that match a specific page type:
+      [{'title': 'The beginning', 'level': 1, 'label': None, 'leaf': 2}, ...]
+      (``list of dict``)
+
+    Might raise KeyError in case the scandata is invalid
+    """
+    scandata = xmltodict.parse(open(xml_file, 'rb'))
+
+    toc = []
+
+    pages = scandata['book']['pageData']['page']
+
+    # If there is just one page, pages is not a list.
+    if not isinstance(pages, list):
+        pages = [pages]
+
+    accessible_count = 0
+    for idx in range(len(pages)):
+        leaf_num = pages[idx]['@leafNum']
+        page_data = pages[idx]['pageType']
+
+        # Do we want to filter based on specific page types?
+        # Let's not for now, since we might want to allow many types
+        if isinstance(page_data, (dict, OrderedDict)):
+            # Let's see what we have
+
+            if '@title' in page_data:
+                title = page_data.get('@title')
+                level = int(page_data.get('@level', 1))
+                label = page_data.get('@label', None)
+
+            toc.append({'title': title, 'level': level, 'label': label,
+                        'leaf': leaf_num, 'accessible-page': accessible_count})
+
+        add_to_access_format = pages[idx].get('addToAccessFormats', 'true') == 'true'
+        if add_to_access_format:
+            accessible_count += 1
+
+    return toc
