@@ -128,17 +128,15 @@ def scandata_xml_get_toc(xml_file):
     accessible_count = 0
     for idx in range(len(pages)):
         leaf_num = pages[idx]['@leafNum']
-        page_data = pages[idx]['pageType']
+        page_chapters = pages[idx].get('contentsTitle', [])
 
-        # Do we want to filter based on specific page types?
-        # Let's not for now, since we might want to allow many types
-        if isinstance(page_data, (dict, OrderedDict)):
-            # Let's see what we have
+        if not isinstance(page_chapters, list):
+            page_chapters = [page_chapters]
 
-            if '@title' in page_data:
-                title = page_data.get('@title')
-                level = int(page_data.get('@level', 1))
-                label = page_data.get('@label', None)
+        for page_data in page_chapters:
+            title = page_data.get('#text')
+            level = int(page_data.get('@level', 1))
+            label = page_data.get('@label', None)
 
             toc.append({'title': title, 'level': level, 'label': label,
                         'leaf': leaf_num, 'accessible-page': accessible_count})
