@@ -398,6 +398,11 @@ def create_mrc_hocr_components(image, hocr_word_data,
 
     yield mask_arr
 
+    if image.mode not in ('L', 'RGB'):
+        # Special modes like mapped ('P') or other modes we just map to RGB for
+        # simplicity sake
+        image = image.convert('RGB')
+
     image_arr = np.array(image)
 
     t = time()
