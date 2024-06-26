@@ -1,5 +1,6 @@
 import numpy
-from setuptools import setup, convert_path
+from setuptools import setup
+from pathlib import Path
 from Cython.Build import cythonize
 
 # Work around bugs in passing CFLAGS to the Cython compilation process
@@ -9,7 +10,7 @@ os.environ['CFLAGS'] = '-Ofast -DNPY_NO_DEPRECATED_API'
 if __name__ == '__main__':
 
     main_ns = {}
-    ver_path = convert_path('internetarchivepdf/const.py')
+    ver_path = Path('internetarchivepdf/const.py')
     with open(ver_path) as ver_file:
         exec(ver_file.read(), main_ns)
 
