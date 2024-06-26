@@ -156,7 +156,11 @@ def get_jpeg2000_info(infile, impl, errors=None):
     # the image size - so let's use some internal functions to speed that up.
     fd = open(infile, 'rb')
     try:
-        size, mode, mimetype, dpi = Jpeg2KImagePlugin._parse_jp2_header(fd)
+        # In some Pillow versions, this returns 3 args, in other four (dpi
+        # added) and in some cases five (pallette added), we only care about the
+        # first three. Of course this is heavily relying on an internal PIL API
+        # and might break with future releases.
+        size, mode, mimetype, *_ = Jpeg2KImagePlugin._parse_jp2_header(fd)
     except Exception:
         # JP2 lacks some info and PIL doesn't like it (Image.open
         # will not work, so use kdu_expand to create a tiff)
