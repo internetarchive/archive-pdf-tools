@@ -11,7 +11,7 @@ jobs:
       CIBW_SKIP: cp36-* *-win32 *-manylinux_i686 pp* *musllinux*
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
+        os: [ubuntu-20.04, windows-latest, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
