@@ -1,0 +1,15 @@
+[build-system]
+requires = [
+    'setuptools',
+    'wheel',
+    'PyMuPDF>=1.21.0',
+    'numpy>=1.21.3',
+    'scipy>=1.7.2',
+    'scikit-image>=0.18.3',
+    'Pillow==9.2.0',
+    'roman==3.3',
+    'Cython>=0.29.23',
+    'xmltodict==0.12.0',
+    'archive-hocr-tools==1.1.41',
+]
+build-system.requires = requires
