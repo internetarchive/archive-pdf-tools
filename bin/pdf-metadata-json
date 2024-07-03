@@ -173,10 +173,18 @@ def map_pdf_filter_to_likely_image_format(filter_):
 
     return filter_map[filter_]
 
-def get_scale_from_image_data(image_data):
-    # TODO: what else can we take into account here?
+def get_scale_from_image_data(image_data, page_rect):
+    # If the size of the image with respect to the page is small, we do not take
+    # it into account for determining the scale of the whole page since this
+    # can otherwise really blow up the page resolution (think of it as a low
+    # pass filter)
+    # If either the page width and image width ratio, or the page height and
+    # image height ratio is less than 0.1, we just ignore the image
+    imval = lambda imd: (((abs(imd['bbox'][2] - imd['bbox'][0])) / page_rect[2]), ((abs(imd['bbox'][3] - imd['bbox'][1])) / page_rect[3]))
 
-    # TODO: What do we do when we have no images? Render at 300dpi?
+    if image_data:
+        image_data = sorted(image_data, key=lambda imd1: imval(imd1), reverse=True)
+        image_data = list(filter(lambda imd: imval(imd)[0] > 0.1 and imval(imd)[1] > 0.1, image_data))
 
     if image_data:
         scale_x = 1.
@@ -189,17 +197,29 @@ def get_scale_from_image_data(image_data):
             bbox_w = abs(bbox[2] - bbox[0])
             bbox_h = abs(bbox[3] - bbox[1])
 
+            # If both .a and .d are negative, the width and height are swapped
+            if info['transform'][0] < 0 and info['transform'][3] < 0:
+                bbox_w, bbox_h = bbox_h, bbox_w
+
             if bbox_w < width:
                 scale_x = width / bbox_w
 
             if bbox_h < height:
                 scale_y = height / bbox_h
 
+            # TODO: Do we want to take the average scale of all images or the max scale?
+
         scale = max(scale_x, scale_y)
     else:
         scale = 300. / 72.
 
-    # TODO: Do we want some min scale? (if it's less than x, set to x)
+    # Let's set a lower bound for ppi if the images are somehow really tiny
+    if scale * 72 < 300:
+        scale = 300 / 72.
+
+    # Upper bound of 1200 DPI
+    if scale * 72 > 1200:
+        scale = 1200 / 72.
 
     return scale
 
@@ -335,7 +355,7 @@ def analyse(filename):
 
             image_data.append(img_info)
 
-        scale = get_scale_from_image_data(image_data)
+        scale = get_scale_from_image_data(image_data, list(page.rect))
 
         page_data['estimated_scale'] = pdf_metadata_json_round(scale)
         page_data['estimated_ppi'] = int(72 * scale)
