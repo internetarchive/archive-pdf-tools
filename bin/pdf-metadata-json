@@ -124,7 +124,8 @@ def get_xref_pix_info(pdf, xref):
     # XXX: pix.n is the bytes requires per pixel, it doesn't necessarily give us
     # the depth, I believe, but maybe it does, if we also know the number of
     # components... there's also pix.colorspace.n
-    if (pix.colorspace is None) or (pix.colorspace.name == 'DeviceGray'):
+    # Note that sometimes the pix.colorspace.name is actually "None" in a string
+    if (pix.colorspace is None or pix.colorspace.name == 'None') or (pix.colorspace.name == 'DeviceGray'):
         if pix.is_monochrome:
             data['depth'] = 1
             data['mode'] = '1'
@@ -142,7 +143,19 @@ def get_xref_pix_info(pdf, xref):
         data['depth'] = 8
         data['mode'] = 'CMYK'
 
+    # "DeviceN color spaces can contain an arbitrary number of color
+    # components. They provide greater flexibility than is possible with
+    # standard device color spaces such as DeviceCMYK or with individual
+    # Separation color spaces." (http://www.asppdf.com/manual_16.html#DeviceN)
+    # Let's just map this to 8bpp RGB.
+    elif pix.colorspace.name.startswith('DeviceN('):
+        data['depth'] = 8  # XXX: hardcoded like with DeviceRGB
+        data['mode'] = 'RGBA' if pix.alpha else 'RGB'
 
+    # Fallback, don't try to parse
+    elif pix.colorspace.name.startswith('ICCBased('):
+        data['depth'] = 8  # XXX: hardcoded like with DeviceRGB
+        data['mode'] = 'RGBA' if pix.alpha else 'RGB'
     else:
         raise Exception('Unknown colorspace:', pix.colorspace.name)
 
