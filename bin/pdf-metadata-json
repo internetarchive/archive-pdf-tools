@@ -8,6 +8,9 @@ import numpy as np
 
 from PIL import Image
 
+# 100k x 100k 32bpp
+Image.MAX_IMAGE_PIXELS = 100000 * 100000 * 4
+
 
 """
 TODO:
