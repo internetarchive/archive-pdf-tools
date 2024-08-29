@@ -135,7 +135,6 @@ def get_val_value(v, vtype):
             raise ValueError
     elif vtype == ALPHA_LOWER or vtype == ALPHA_UPPER:
         return alpha_to_number(v.upper())
-    pass
 
 
 def find_next_nonzero(series):
