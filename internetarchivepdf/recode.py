@@ -494,7 +494,7 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
         reporting_page_count += 1
 
         if report_every is not None and reporting_page_count % report_every == 0:
-            print('Processed %d PDF pages.' % idx)
+            print('Processed %d PDF pages.' % (idx + 1))
             sys.stdout.flush()
 
             timing_sum = get_timing_summary(timing_data)
@@ -556,7 +556,7 @@ def insert_images(from_pdf, to_pdf, mode, report_every=None, stop_after=None):
             break
 
         if report_every is not None and idx % report_every == 0:
-            print('Processed %d PDF pages.' % idx)
+            print('Processed %d PDF pages.' % (idx + 1))
             sys.stdout.flush()
 
 
