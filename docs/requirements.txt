@@ -1,9 +1,9 @@
 PyMuPDF==1.19.2
-numpy==1.21.3
+numpy==1.22.0
 scipy==1.7.1
 lxml
 scikit-image==0.18.3
-Pillow==8.3.2
+Pillow==10.3.0
 roman==3.3
 Cython==0.29.23
 xmltodict==0.12.0
