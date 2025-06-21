@@ -16,7 +16,7 @@ cimport cython
 INTDTYPE = np.int_
 UINT8DTYPE = np.uint8
 
-ctypedef np.int_t INTDTYPE_t
+ctypedef np.int32_t INTDTYPE_t
 ctypedef np.uint8_t UINT8DTYPE_t
 
 # Speed up the code
