@@ -197,7 +197,7 @@ def create_hocr_mask(img, mask_arr, hocr_word_data, downsample=None, dpi=None, t
 
             line_text = ' '.join([word['text'] for word in line['words']])
             line_confs = [word['confidence'] for word in line['words']]
-            line_conf = sum(line_confs) / len(line_confs)
+            line_conf = sum(line_confs) / len(line_confs) if len(line_confs) else 0
 
             if line_text.strip() == '' or line_conf < 20:
                 continue
