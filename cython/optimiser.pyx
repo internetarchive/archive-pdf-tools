@@ -8,7 +8,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
-INTDTYPE = np.int_
+INTDTYPE = np.int32
 UINT8DTYPE = np.uint8
 ctypedef np.int32_t INTDTYPE_t
 ctypedef np.uint8_t UINT8DTYPE_t
