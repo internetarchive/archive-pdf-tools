@@ -25,7 +25,7 @@
 # For fast_insert_image, see this for more background:
 # https://github.com/pymupdf/PyMuPDF/issues/1408
 
-import pkg_resources
+import importlib_resources
 from math import ceil
 from datetime import datetime
 from xml.sax.saxutils import escape as xmlescape
@@ -186,7 +186,7 @@ def write_pdfa(to_pdf):
       /N 3
 >>
 """)
-    icc = pkg_resources.resource_string('internetarchivepdf', "data/tmp.icc")
+    icc = (importlib_resources.files('internetarchivepdf') / 'data/tmp.icc').read_bytes()
     to_pdf.update_stream(srgbxref, icc, new=True)
 
     intentxref = to_pdf.get_new_xref()

@@ -15,8 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Author: Merlijn Boris Wolf Wajer <merlijn@archive.org>
-import pkg_resources
-
 import sys
 import os
 import subprocess

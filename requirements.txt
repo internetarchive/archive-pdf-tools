@@ -8,3 +8,4 @@ Cython>=0.29.23
 xmltodict==0.12.0
 archive-hocr-tools==1.1.41
 PyWavelets
+importlib_resources
