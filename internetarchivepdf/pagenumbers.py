@@ -44,9 +44,9 @@ _type2pdf = {
         ALPHA_LOWER: '/a',
 }
 
-_ARABIC_RE = re.compile('[0-9]+')
-_ALPHA_UPPER_RE = re.compile('[A-Z]+')
-_ALPHA_LOWER_RE = re.compile('[a-z]+')
+_ARABIC_RE = re.compile('^[0-9]+$')
+_ALPHA_UPPER_RE = re.compile('^[A-Z]+$')
+_ALPHA_LOWER_RE = re.compile('^[a-z]+$')
 
 
 def is_arabic(n):
