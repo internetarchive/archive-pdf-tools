@@ -373,11 +373,11 @@ def analyse(filename):
 
         scale = get_scale_from_image_data(image_data, list(page.rect))
 
-        if ((page.rect[2] - page.rect[0]) * scale) > 25000 or ((page.rect[3] - page.rect[1]) * scale) > 25000:
+        if ((page.rect[2] - page.rect[0]) * scale) > 10000 or ((page.rect[3] - page.rect[1]) * scale) > 10000:
             print('page rect or scale too large, decreasing the size', file=sys.stderr)
 
-            scale_x = 25000 / (page.rect[2] - page.rect[0])
-            scale_y = 25000 / (page.rect[3] - page.rect[1])
+            scale_x = 10000 / (page.rect[2] - page.rect[0])
+            scale_y = 10000 / (page.rect[3] - page.rect[1])
 
             scale = min(scale_x, scale_y)
 
