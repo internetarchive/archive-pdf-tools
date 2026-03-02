@@ -229,8 +229,14 @@ def get_scale_from_image_data(image_data, page_rect):
     else:
         scale = 300. / 72.
 
+    images_tiny = False
+    if image_data:
+        for info in image_data:
+            if info['width'] < 512 and info['height'] < 512:
+                images_tiny = True
+
     # Let's set a lower bound for ppi if the images are somehow really tiny
-    if scale * 72 < 300:
+    if images_tiny and scale * 72 < 300:
         scale = 300 / 72.
 
     # Upper bound of 1200 DPI
