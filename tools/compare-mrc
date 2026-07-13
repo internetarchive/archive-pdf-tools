@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Compare MRC compression quality across images.
+
+Runs the MRC pipeline on one or more images and reports SSIM, PSNR,
+compression ratio, and per-layer file sizes. Optionally generates
+side-by-side visual comparisons.
+
+Mirrors recode_pdf CLI arguments where applicable.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr
+
+from internetarchivepdf.mrc import create_mrc_hocr_components, encode_mrc_images
+from internetarchivepdf.const import (
+    JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG, JPEG2000_IMPL_GROK,
+    JPEG2000_IMPL_PILLOW,
+    COMPRESSOR_JPEG2000, COMPRESSOR_JPEG,
+    DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN,
+)
+
+
+BACKEND_DEFAULTS = {
+    JPEG2000_IMPL_PILLOW: {
+        'bg': 'quality_mode:"rates";quality_layers:[500]',
+        'fg': 'quality_mode:"rates";quality_layers:[750]',
+    },
+    JPEG2000_IMPL_KAKADU: {
+        'bg': '-slope 44250',
+        'fg': '-slope 44500',
+    },
+    JPEG2000_IMPL_OPENJPEG: {
+        'bg': '-r 500',
+        'fg': '-r 750',
+    },
+    JPEG2000_IMPL_GROK: {
+        'bg': '-r 500',
+        'fg': '-r 750',
+    },
+}
+
+
+def compute_metrics(original, compressed):
+    if original.shape != compressed.shape:
+        compressed = np.array(Image.fromarray(compressed).resize(
+            (original.shape[1], original.shape[0]), Image.LANCZOS))
+    min_dim = min(original.shape[0], original.shape[1])
+    win_size = min(7, min_dim if min_dim % 2 == 1 else min_dim - 1)
+    if win_size < 3:
+        return 1.0, 100.0
+    channel_axis = -1 if original.ndim == 3 else None
+    ssim_val = ssim(original, compressed, data_range=255,
+                    win_size=win_size, channel_axis=channel_axis)
+    psnr_val = psnr(original, compressed, data_range=255)
+    return ssim_val, psnr_val
+
+
+def load_hocr_word_data(hocr_path):
+    from hocr.parse import hocr_page_to_word_data, hocr_page_iterator
+    import io
+    with open(hocr_path) as f:
+        content = f.read()
+    page = next(hocr_page_iterator(io.StringIO(content)))
+    return hocr_page_to_word_data(page)
+
+
+def process_image(img_path, hocr_path, backend, bg_flags, fg_flags, args, tmp_dir):
+    img = Image.open(img_path)
+    img_np = np.array(img)
+    is_rgb = img.mode == 'RGB'
+    mode = 'RGB' if is_rgb else 'L'
+    img_np = np.array(img.convert(mode))
+    h, w = img_np.shape[:2]
+
+    word_data = []
+    if hocr_path:
+        word_data = load_hocr_word_data(hocr_path)
+
+    gen = create_mrc_hocr_components(
+        img, word_data, dpi=args.dpi,
+        bg_downsample=args.bg_downsample,
+        fg_downsample=args.fg_downsample,
+        denoise_mask=args.denoise_mask,
+    )
+
+    mask_path, bg_path, (bg_w, bg_h), fg_path, (fg_w, fg_h) = encode_mrc_images(
+        gen,
+        bg_compression_flags=bg_flags.split(' '),
+        fg_compression_flags=fg_flags.split(' '),
+        tmp_dir=tmp_dir,
+        jbig2=args.mask_compression == 'jbig2',
+        jpeg2000_implementation=backend,
+        mrc_image_format=args.mrc_image_format,
+    )
+
+    bg_img = np.array(Image.open(bg_path).convert(mode).resize((w, h), Image.LANCZOS))
+    fg_img = np.array(Image.open(fg_path).convert(mode).resize((w, h), Image.LANCZOS))
+
+    # Decode mask to PNG if it's JBIG2
+    if mask_path.endswith('.jbig2'):
+        png_path = mask_path.replace('.jbig2', '.png')
+        subprocess.run(['jbig2dec', '-o', png_path, mask_path], check=True, capture_output=True)
+        mask_path = png_path
+    mask_img = np.array(Image.open(mask_path).convert('L').resize((w, h), Image.LANCZOS)) > 128
+
+    if is_rgb:
+        recon = np.where(mask_img[:, :, None], fg_img, bg_img)
+    else:
+        recon = np.where(mask_img, fg_img, bg_img)
+
+    ssim_val, psnr_val = compute_metrics(img_np, recon)
+
+    raw_bytes = img_np.nbytes
+    compressed_bytes = (os.path.getsize(bg_path) + os.path.getsize(fg_path)
+                        + os.path.getsize(mask_path))
+    ratio = raw_bytes / compressed_bytes if compressed_bytes > 0 else 0
+
+    return {
+        'image': os.path.basename(img_path),
+        'backend': backend,
+        'width': w,
+        'height': h,
+        'mode': mode,
+        'ssim': ssim_val,
+        'psnr': psnr_val,
+        'compression_ratio': ratio,
+        'raw_bytes': raw_bytes,
+        'compressed_bytes': compressed_bytes,
+        'bg_bytes': os.path.getsize(bg_path),
+        'fg_bytes': os.path.getsize(fg_path),
+        'mask_bytes': os.path.getsize(mask_path),
+        'recon': recon if args.visual else None,
+        'original': img_np if args.visual else None,
+    }
+
+
+def make_visual(out_dir, name, result):
+    """Save side-by-side comparison: original | reconstructed | difference heatmap."""
+    orig = result['original']
+    recon = result['recon']
+    diff = np.abs(orig.astype(np.float32) - recon.astype(np.float32))
+    diff = (diff / diff.max() * 255).astype(np.uint8) if diff.max() > 0 else diff.astype(np.uint8)
+
+    if orig.ndim == 2:
+        diff = diff[..., None].repeat(3, axis=-1)
+        orig_rgb = np.stack([orig] * 3, axis=-1)
+        recon_rgb = np.stack([recon] * 3, axis=-1)
+    else:
+        orig_rgb = orig
+        recon_rgb = recon
+
+    margin = 4
+    total_w = orig.shape[1] * 3 + margin * 2
+    canvas = np.zeros((orig.shape[0], total_w, 3), dtype=np.uint8)
+    canvas[:, :orig.shape[1]] = orig_rgb
+    canvas[:, orig.shape[1] + margin:2 * orig.shape[1] + margin] = recon_rgb
+    canvas[:, 2 * orig.shape[1] + margin * 2:] = diff
+
+    out_path = out_dir / f'{name}_comparison.png'
+    Image.fromarray(canvas).save(out_path)
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Compare MRC compression quality across images')
+    parser.add_argument('images', nargs='+', help='Input image files')
+    parser.add_argument('--hocr-file', help='hOCR input file (optional)')
+    parser.add_argument('--dpi', type=int, default=300, help='Scan resolution (default: 300)')
+    parser.add_argument('--jpeg2000-implementation', type=str,
+                        default=JPEG2000_IMPL_PILLOW,
+                        help='Comma-separated list of JPEG2000 backends (default: pillow)')
+    parser.add_argument('--bg-compression-flags', type=str, action='append', default=[],
+                        help='Background compression flags (repeat per backend, in order)')
+    parser.add_argument('--fg-compression-flags', type=str, action='append', default=[],
+                        help='Foreground compression flags (repeat per backend, in order)')
+    parser.add_argument('--mrc-image-format', default=COMPRESSOR_JPEG2000,
+                        choices=[COMPRESSOR_JPEG2000, COMPRESSOR_JPEG],
+                        help='Image format for MRC layers (default: jpeg2000)')
+    parser.add_argument('--mask-compression', default='jbig2',
+                        choices=['jbig2', 'ccitt'],
+                        help='Mask compression (default: jbig2)')
+    parser.add_argument('--denoise-mask', default=DENOISE_FAST,
+                        choices=[DENOISE_NONE, DENOISE_FAST, DENOISE_BREGMAN],
+                        help='Mask denoising strategy (default: fast)')
+    parser.add_argument('--bg-downsample', type=int, default=2,
+                        help='Background downsample factor (default: 2)')
+    parser.add_argument('--fg-downsample', type=int, default=1,
+                        help='Foreground downsample factor (default: 1)')
+    parser.add_argument('--out-dir', default='compare-output',
+                        help='Output directory (default: ./compare-output/)')
+    parser.add_argument('--visual', action='store_true',
+                        help='Generate side-by-side comparison images')
+
+    args = parser.parse_args()
+
+    backends = [b.strip() for b in args.jpeg2000_implementation.split(',')]
+    valid_backends = {JPEG2000_IMPL_KAKADU, JPEG2000_IMPL_OPENJPEG,
+                      JPEG2000_IMPL_GROK, JPEG2000_IMPL_PILLOW}
+    for b in backends:
+        if b not in valid_backends:
+            print(f'Error: unknown backend "{b}". Valid: {", ".join(sorted(valid_backends))}', file=sys.stderr)
+            sys.exit(1)
+
+    # Pad compression flags to match number of backends
+    bg_flags_list = args.bg_compression_flags[:]
+    fg_flags_list = args.fg_compression_flags[:]
+    while len(bg_flags_list) < len(backends):
+        bg_flags_list.append(None)
+    while len(fg_flags_list) < len(backends):
+        fg_flags_list.append(None)
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix='compare-mrc-') as tmp_dir:
+        results = []
+        for img_path in args.images:
+            if not os.path.exists(img_path):
+                print(f'Error: {img_path} not found', file=sys.stderr)
+                sys.exit(1)
+            for i, backend in enumerate(backends):
+                bg_flags = bg_flags_list[i] or BACKEND_DEFAULTS[backend]['bg']
+                fg_flags = fg_flags_list[i] or BACKEND_DEFAULTS[backend]['fg']
+                result = process_image(img_path, args.hocr_file, backend, bg_flags, fg_flags, args, tmp_dir)
+                results.append(result)
+
+        # Print results table
+        print(f"{'Image':<40} {'Backend':<10} {'Mode':<6} {'SSIM':<8} {'PSNR':<8} "
+              f"{'Ratio':<8} {'Raw':>10} {'Comp':>10} {'Bg':>10} {'Fg':>10} {'Mask':>10}")
+        print('-' * 140)
+        for r in results:
+            print(f"{r['image']:<40} {r['backend']:<10} {r['mode']:<6} {r['ssim']:<8.4f} "
+                  f"{r['psnr']:<8.2f} {r['compression_ratio']:<8.2f} "
+                  f"{r['raw_bytes']:>10} {r['compressed_bytes']:>10} "
+                  f"{r['bg_bytes']:>10} {r['fg_bytes']:>10} {r['mask_bytes']:>10}")
+
+        if args.visual:
+            for i, r in enumerate(results):
+                suffix = f"{r['backend']}_{i}" if len(backends) > 1 else r['backend']
+                vis_path = make_visual(out_dir, f"{r['image']}_{suffix}", r)
+                print(f'Visual comparison saved: {vis_path}')
+
+
+if __name__ == '__main__':
+    main()
