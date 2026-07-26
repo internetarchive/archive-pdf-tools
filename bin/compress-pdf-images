@@ -36,7 +36,6 @@ def remove_images(doc, page, unwanted):
                 break
 
     doc.update_stream(xref, b"\n".join(cont))  # replace cleaned command object
-    page.clean_contents()  # removes now unreferenced images from page definition
 
 
 def compress_page_images(doc, page, hocr_word_data=[]):
