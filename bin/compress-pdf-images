@@ -20,18 +20,23 @@ from internetarchivepdf.mrc import create_mrc_hocr_components, encode_mrc_images
 # - Stabilise and clean up the code, the many clean_contents
 # - 
 
+import re
 
-#from pymupdf examples
+#from pymupdf examples, modified
 def remove_images(doc, page, unwanted):
     un_list = [b"/%s Do" % u.encode() for u in unwanted]
     #page.clean_contents()  # unify / format the commands
     xref=page.get_contents()[0]  # get its XREF
     cont=page.read_contents().splitlines()  # read commands as list of lines
     for i in range(len(cont)):  # walk thru the lines
-        if cont[i] in un_list:  # invokes an unwanted image
-            cont[i] = b""  # remove command
+        for unl in un_list:
+            if unl in cont[i]:  # invokes an unwanted image
+                replace_re = re.compile(re.escape(unl) + b'[^/]+')
+                cont[i] = replace_re.sub(b'', cont[i], count=1) # remove command
+                break
+
     doc.update_stream(xref, b"\n".join(cont))  # replace cleaned command object
-    #page.clean_contents()  # removes now unreferenced images from page definition
+    page.clean_contents()  # removes now unreferenced images from page definition
 
 
 def compress_page_images(doc, page, hocr_word_data=[]):
