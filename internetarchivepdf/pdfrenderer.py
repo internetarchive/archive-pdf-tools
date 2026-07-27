@@ -111,9 +111,13 @@ class TessPDFRenderer(object):
             old_fontsize = 0
             new_block = True
 
-            for line in paragraph['lines']:
+            lines = paragraph['lines']
+            for line_idx, line in enumerate(lines):
                 first_word_of_line = True
-                for word in line['words']:
+                words = line['words']
+                for word_idx, word in enumerate(words):
+                    last_word_in_paragraph = (line_idx == len(lines) - 1 and
+                                              word_idx == len(words) - 1)
                     if first_word_of_line:
                         bx1, by1, bx2, by2 = line['bbox']
                         slope, const = line['baseline']
@@ -187,9 +191,16 @@ class TessPDFRenderer(object):
                             pdf_word += utf16
                             pdf_word_len += 1
 
-                    if True: # res_is->IsAtBeginningOf(RIL_WORD)
+                    # Tesseract appends a space (0020) after each word's
+                    # characters, except for the last word in the block.
+                    # The space is part of the TJ hex string but does NOT
+                    # count toward pdf_word_len (which only counts actual
+                    # glyphs), so it must not inflate the h_stretch
+                    # denominator.  (This matches pdfrenderer.cpp where
+                    # pdf_word_len is incremented only inside the symbol
+                    # loop, never for the trailing space.)
+                    if not last_word_in_paragraph:
                         pdf_word += b'0020'
-                        pdf_word_len += 1
 
                     if word_length > 0 and pdf_word_len > 0:
                         h_stretch = K_CHAR_WIDTH * prec(100.0 * word_length / (fontsize * pdf_word_len))
@@ -485,8 +496,14 @@ def GetWordBaseline(writing_direction, ppi, height,
           x = line_x2 + t * (line_x2 - line_x1)
           y = line_y2 + t * (line_y2 - line_y1)
 
-    word_length = float(dist2(word_x1, word_y1, word_x2, word_y2) ** 0.5)
-    word_length = word_length * 72.0 / ppi
+    # Tesseract computes word_length from the word's *baseline* endpoints
+    # (res_it->Baseline(RIL_WORD, ...)), which hOCR does not carry.  We
+    # approximate it with the word's horizontal extent (bbox width), which
+    # matches Tesseract for the common case of horizontal text.  Using the
+    # bbox diagonal (sqrt(width**2 + height**2)) as was done previously
+    # inflates word_length and thus h_stretch, mis-aligning the invisible
+    # text from the visible word.
+    word_length = abs(word_x2 - word_x1) * 72.0 / ppi
     x = x * 72 / ppi
     y = height - (y * 72.0 / ppi)
 
