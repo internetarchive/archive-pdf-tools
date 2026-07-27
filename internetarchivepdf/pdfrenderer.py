@@ -131,9 +131,14 @@ class TessPDFRenderer(object):
                         line_x1, line_y1, line_x2, line_y2 = \
                                 ClipBaseline(ppi, x1, y1, x2, y2)
 
-                        writing_direction = word['writing_direction']
-                        if writing_direction == WRITING_DIRECTION_UNSPECIFIED:
-                            writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
+                        first_word_of_line = False
+
+                    # Writing direction is per-word in Tesseract
+                    # (res_it->WordDirection()), so read it for every
+                    # word, not just the first word of the line.
+                    writing_direction = word['writing_direction']
+                    if writing_direction == WRITING_DIRECTION_UNSPECIFIED:
+                        writing_direction = WRITING_DIRECTION_LEFT_TO_RIGHT
 
                     word_x1, word_y1, word_x2, word_y2 = word['bbox']
 
@@ -160,8 +165,6 @@ class TessPDFRenderer(object):
                         pdf_str += b' ' + floatbytes(prec(dx * a + dy * b))
                         pdf_str += b' ' + floatbytes(prec(dx * c + dy * d))
                         pdf_str += b' Td '
-
-                        first_word_of_line = False
 
                     old_x = x;
                     old_y = y;
