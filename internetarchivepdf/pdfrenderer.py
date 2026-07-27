@@ -181,7 +181,12 @@ class TessPDFRenderer(object):
                             fontsize = kDefaultFontsize
 
                     if fontsize != old_fontsize:
-                        pdf_str += b'/f-0-0 ' + str(fontsize).encode('ascii') + b' Tf ';
+                        # Use floatbytes with limited precision instead of str()
+                        # to avoid writing long float reprs (e.g. 54.166666666666664)
+                        # into the PDF content stream.  Tesseract emits fontsize as
+                        # an int, but the hOCR pipeline may scale it to a non-integer
+                        # (hocr_dpi / ppi), so we keep it as a float.
+                        pdf_str += b'/f-0-0 ' + floatbytes(fontsize, prec=3) + b' Tf ';
                         old_fontsize = fontsize;
 
                     pdf_word = b''
