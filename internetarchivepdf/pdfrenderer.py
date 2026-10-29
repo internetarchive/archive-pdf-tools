@@ -10,7 +10,7 @@
 #    Version 2.0, January 2004
 # http://www.apache.org/licenses/
 
-import pkg_resources
+import importlib_resources
 
 from math import atan, atan2, cos, sin
 import numpy as np
@@ -312,7 +312,7 @@ class TessPDFRenderer(object):
           b'endobj\n')
         self.AppendPDFObject(stream)
 
-        fontstream = pkg_resources.resource_string('internetarchivepdf', "data/tesseract.ttf")
+        fontstream = (importlib_resources.files('internetarchivepdf') / 'data/tesseract.ttf').read_bytes()
         stream = (
           b'8 0 obj\n'
           b'<<\n'
