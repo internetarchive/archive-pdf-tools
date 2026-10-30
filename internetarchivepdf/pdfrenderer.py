@@ -84,6 +84,18 @@ class TessPDFRenderer(object):
         line_x2 = 0
         line_y2 = 0
 
+        # The q/Q above only wraps the (optional) image draw, and the CTM it
+        # sets is undone by its Q before any text is emitted. Text state set
+        # inside a text object (Tr, Tf, Tz, Tm) is *not* restored by ET, so
+        # without a q/Q of its own the page leaks that state into whatever gets
+        # appended after it -- and MuPDF >= 1.24 notices: insert_image() then
+        # prepends/appends its own 'q'/'Q' content streams per page (see
+        # Page.wrap_contents), which makes the output depend on the PyMuPDF
+        # version. Do it here instead, so the page is self-contained. The q is
+        # emitted lazily, because a page without any text must not get a
+        # dangling q (that would be unbalanced in the other direction).
+        text_state_pushed = False
+
         for paragraph in word_data:
 
             # See if we want to skip this line (if it's just a space with a big
@@ -102,6 +114,10 @@ class TessPDFRenderer(object):
             if linetext.strip() == '':
                 continue
 
+
+            if not text_state_pushed:
+                pdf_str += b'q\n'
+                text_state_pushed = True
 
             if self.render_text_lines:
                 # Use this instead of b'BT\n3 Tr' if you want to see the text
@@ -203,6 +219,8 @@ class TessPDFRenderer(object):
             # Last line the block
             pdf_str += b'ET\n'
 
+        if text_state_pushed:
+            pdf_str += b'Q\n'
 
         return pdf_str
 
