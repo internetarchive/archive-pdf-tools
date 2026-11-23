@@ -165,6 +165,43 @@ followed by the foreground image, which uses the mask as its alpha layer.
 
 Usage
 -----
+Example: Re-encoding a Scanned Multipage PDF
+--------------------------------------------
+
+Important:
+Re-encoding a scanned PDF requires an hOCR file.
+If an hOCR file is not provided, the tools may fail with confusing errors.
+
+This section provides a minimal, user-friendly example for a common workflow.
+
+Step 1: Start with a scanned PDF::
+
+    scan.pdf
+
+Step 2: Generate an hOCR file
+One way to generate an hOCR file is using OCR tools such as ``ocrmypdf``::
+
+    ocrmypdf --sidecar scan.hocr scan.pdf scan_searchable.pdf
+
+This command produces:
+- ``scan_searchable.pdf`` (PDF with text layer)
+- ``scan.hocr`` (hOCR file required for re-encoding)
+
+Step 3: Re-encode the PDF using archive-pdf-tools::
+
+    recode_pdf \
+      --from-pdf scan_searchable.pdf \
+      --from-hocr scan.hocr \
+      --out-pdf output.pdf
+
+Common Pitfall
+~~~~~~~~~~~~~~
+
+Running ``recode_pdf`` without providing an hOCR file may result in errors such as::
+
+    AttributeError: 'NoneType' object has no attribute 'seek'
+
+This indicates that an hOCR file is required for this workflow.
 
 Creating a PDF from a set of images is pretty straightforward::
 
