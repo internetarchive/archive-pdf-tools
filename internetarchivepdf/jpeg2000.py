@@ -148,7 +148,7 @@ def decode_jpeg2000(infile, reduce_=None, impl=JPEG2000_IMPL_PILLOW,
     return img
 
 
-def get_jpeg2000_info(infile, impl, errors=None):
+def get_jpeg2000_info(infile, impl, errors=None, tmp_dir=None):
     size = None
     mode = None
 
@@ -163,7 +163,7 @@ def get_jpeg2000_info(infile, impl, errors=None):
         if errors is not None:
             errors.add(RECODE_RUNTIME_WARNING_INVALID_JP2_HEADERS)
 
-        img = decode_jpeg2000(infile, impl=impl)
+        img = decode_jpeg2000(infile, impl=impl, tmp_dir=tmp_dir)
         size = img.size
         mode = img.mode
         img = None

@@ -570,8 +570,8 @@ def encode_mrc_img(np_img, img_compression_flags, imgtype=None, tmp_dir=None,
         tmpfd.close()
     else:
         encode_jpeg2000(img, img_jp2, jpeg2000_implementation,
-                        img_compression_flags, imgtype=imgtype,
-                        threads=threads, debug=debug)
+                        img_compression_flags, tmp_dir=tmp_dir,
+                        imgtype=imgtype, threads=threads, debug=debug)
 
 
     if timing_data is not None:

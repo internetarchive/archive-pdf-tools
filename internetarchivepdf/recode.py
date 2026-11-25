@@ -135,7 +135,8 @@ def create_tess_textonly_pdf(hocr_file, save_path, in_pdf=None,
                 raise IndexError('Number of pages in hOCR does not match number of images provided')
 
             if imgfile.endswith('.jp2'):
-                size, _ = get_jpeg2000_info(imgfile, jpeg2000_implementation, errors)
+                size, _ = get_jpeg2000_info(imgfile, jpeg2000_implementation,
+                        errors, tmp_dir=tmp_dir)
                 imwidth, imheight = size
             else:
                 img = Image.open(imgfile)
@@ -341,7 +342,8 @@ def insert_images_mrc(to_pdf, hocr_file, from_pdf=None, image_files=None,
             # Potentially special path
             if imgfile.endswith('.jp2') or imgfile.endswith('.jpx'):
                 image = decode_jpeg2000(imgfile, reduce_=downsample,
-                        impl=jpeg2000_implementation, threads=threads, debug=debug)
+                        impl=jpeg2000_implementation, tmp_dir=tmp_dir,
+                        threads=threads, debug=debug)
                 if downsample:
                     downsampled = True
             else:
