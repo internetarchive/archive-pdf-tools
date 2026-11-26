@@ -8,7 +8,10 @@ import io
 import zipfile
 import tempfile
 
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 from PIL import Image
 

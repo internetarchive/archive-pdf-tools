@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 import sys
 import os
 

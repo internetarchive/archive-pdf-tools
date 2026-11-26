@@ -36,7 +36,10 @@ import numpy as np
 from optimiser import optimise_gray, optimise_rgb, optimise_gray2, optimise_rgb2, fast_mask_denoise
 from sauvola import binarise_sauvola
 
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 fitz.TOOLS.set_icc(True) # For good measure, not required
 
