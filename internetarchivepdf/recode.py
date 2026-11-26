@@ -32,7 +32,10 @@ import io
 
 from PIL import Image
 import numpy as np
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 from hocr.parse import (hocr_page_iterator, hocr_page_to_word_data,
         hocr_page_get_dimensions, hocr_page_get_scan_res)

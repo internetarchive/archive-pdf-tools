@@ -6,7 +6,10 @@ import io
 import sys
 
 from PIL import Image
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 from hocr.parse import hocr_page_iterator, hocr_page_to_word_data
 from internetarchivepdf.const import DENOISE_FAST, JPEG2000_IMPL_KAKADU, \

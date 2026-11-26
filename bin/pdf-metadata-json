@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import sys
 
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 import io
 import numpy as np

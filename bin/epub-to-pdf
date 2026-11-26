@@ -28,7 +28,10 @@ VERSION = '1.0.0'
 
 
 import sys
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:  # older PyMuPDF without the pymupdf module name
+    import fitz
 
 from internetarchivepdf.const import __version__ as iapdf_version
 
