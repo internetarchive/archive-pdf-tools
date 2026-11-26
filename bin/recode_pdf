@@ -190,6 +190,14 @@ if __name__ == '__main__':
                                help='Do not error if scandata has invalid page numbers')
 
     args = parser.parse_args()
+    # Explicit check for required hOCR file when recoding scanned PDFs
+    if args.from_pdf is not None and args.hocr_file is None:
+       sys.stderr.write(
+        "***** Error: --hocr-file is required for scanned PDFs.\n"
+        "Please provide a valid hOCR file.\n\n"
+    )
+    parser.print_help()
+    sys.exit(1)
     if (args.from_pdf is None and args.from_imagestack is None) or args.out_pdf is None:
         sys.stderr.write('***** Error: --from-pdf or --out-pdf missing\n\n')
         parser.print_help()
